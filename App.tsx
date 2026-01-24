@@ -5,7 +5,7 @@
  * @format
  */
 
-import { StatusBar, StyleSheet, TextInput, TouchableOpacity, useColorScheme, View, ActivityIndicator, Alert } from 'react-native';
+import { StatusBar, StyleSheet, TextInput, TouchableOpacity, useColorScheme, View, ActivityIndicator, Alert, Modal, ScrollView, Pressable } from 'react-native';
 import {
   SafeAreaProvider,
 
@@ -16,6 +16,36 @@ import DocumentPicker, { types } from 'react-native-document-picker';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BrotherPrint, { PrinterModel, LabelSize, DiscoveredPrinter } from './lib/brother';
+import PrinterScreen from './app/screens/PrinterScreen';
+import LoginScreen from './app/screens/LoginScreen';
+import ResultScreen from './app/screens/ResultScreen';
+
+const labelSizeDescriptions: Record<LabelSize, string> = {
+  [LabelSize.DieCutW17H54]: '17mm x 54mm (Die Cut)',
+  [LabelSize.DieCutW17H87]: '17mm x 87mm (Die Cut)',
+  [LabelSize.DieCutW23H23]: '23mm x 23mm (Die Cut)',
+  [LabelSize.DieCutW29H42]: '29mm x 42mm (Die Cut)',
+  [LabelSize.DieCutW29H90]: '29mm x 90mm (Die Cut)',
+  [LabelSize.DieCutW38H90]: '38mm x 90mm (Die Cut)',
+  [LabelSize.DieCutW39H48]: '39mm x 48mm (Die Cut)',
+  [LabelSize.DieCutW52H29]: '52mm x 29mm (Die Cut)',
+  [LabelSize.DieCutW62H29]: '62mm x 29mm (Die Cut)',
+  [LabelSize.DieCutW62H100]: '62mm x 100mm (Die Cut)',
+  [LabelSize.DieCutW60H86]: '60mm x 86mm (Die Cut)',
+  [LabelSize.DieCutW54H29]: '54mm x 29mm (Die Cut)',
+  [LabelSize.DieCutW102H51]: '102mm x 51mm (Die Cut)',
+  [LabelSize.DieCutW102H152]: '102mm x 152mm (Die Cut)',
+  [LabelSize.DieCutW103H164]: '103mm x 164mm (Die Cut)',
+  [LabelSize.RollW12]: '12mm (Roll)',
+  [LabelSize.RollW29]: '29mm (Roll)',
+  [LabelSize.RollW38]: '38mm (Roll)',
+  [LabelSize.RollW50]: '50mm (Roll)',
+  [LabelSize.RollW54]: '54mm (Roll)',
+  [LabelSize.RollW62]: '62mm (Roll)',
+  [LabelSize.RollW62RB]: '62mm RB (Roll)',
+  [LabelSize.RollW102]: '102mm (Roll)',
+  [LabelSize.RollW103]: '103mm (Roll)',
+};
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -29,205 +59,19 @@ function App() {
 }
 
 function AppContent() {
-  const [file, setFile] = useState<string | null>(null);
-  const [ip, setIp] = useState<string>('');
-  const [selectedIP, setSelectedIP] = useState<string>('');
-  const [printing, setPrinting] = useState<boolean>(false);
-  const [discovering, setDiscovering] = useState<boolean>(false);
-  const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([]);
-
-  useEffect(() => {
-    async function loadIp() {
-      try {
-        const storedIp = await AsyncStorage.getItem('printer_ip');
-        if (storedIp) {
-          setSelectedIP(storedIp);
-        }
-      } catch (e) {
-        console.error('Failed to load printer_ip', e);
-      }
-    }
-    loadIp();
-  }, []);
-  useEffect(() => {
-    AsyncStorage.setItem('printer_ip', selectedIP);
-  }, [selectedIP]);
-
-
-
-  const pickFile = async () => {
-    try {
-      const res = await DocumentPicker.pick({
-        type: [types.images], // Permite selecionar apenas imagens
-      });
-      console.log('File selected: ', res);
-      setFile(res[0].uri); // Salva o URI do arquivo selecionado
-    } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
-        console.log('User canceled the picker');
-      } else {
-        console.error('Unknown error: ', err);
-      }
-    }
-  };
-
-
-  const handleStorageIP = async () => {
-    try {
-      await AsyncStorage.setItem('printer_ip', ip);
-      setSelectedIP(ip);
-      setIp('');
-    }
-
-    catch (e) {
-      console.error('Failed to save printer_ip', e);
-    }
-  };
-
-
-  const handleDiscovery = async () => {
-    setDiscovering(true);
-    setDiscoveredPrinters([]);
-    
-    try {
-      console.log('Starting printer discovery...');
-      const printers = await BrotherPrint.discoverPrinters(15);
-      console.log('Found printers:', printers);
-      
-      setDiscoveredPrinters(printers);
-      
-      if (printers.length === 0) {
-        Alert.alert('Nenhuma impressora encontrada', 'Nenhuma impressora Brother foi encontrada na rede. Você pode adicionar o IP manualmente.');
-      } else {
-        Alert.alert('Impressoras encontradas', `${printers.length} impressora(s) encontrada(s)`);
-      }
-    } catch (error: any) {
-      console.error('Discovery error:', error);
-      Alert.alert('Erro na descoberta', error.message || String(error));
-    } finally {
-      setDiscovering(false);
-    }
-  };
-
-
-  const handleSelectPrinter = (printer: DiscoveredPrinter) => {
-    setSelectedIP(printer.ipAddress);
-    Alert.alert('Impressora selecionada', `${printer.modelName || 'Impressora'} - ${printer.ipAddress}`);
-  };
-
-
-
+  const [screen, setScreen] = useState<'printer' | 'login' | 'result'>('login');
+  const [loginResultDesc, setLoginResultDesc] = useState<string>('');
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Brother Printer</Text>
-      
-      <TouchableOpacity
-        style={[styles.button, discovering && styles.buttonDisabled]}
-        onPress={handleDiscovery}
-        disabled={discovering}
-      >
-        <Text style={styles.buttonText}>
-          {discovering ? 'Procurando impressoras...' : '🔍 Descobrir Impressoras'}
-        </Text>
-      </TouchableOpacity>
-
-      {discovering && <ActivityIndicator size="large" style={styles.loader} />}
-
-      {discoveredPrinters.length > 0 && (
-        <View style={styles.printerListContainer}>
-          <Text style={styles.subtitle}>Impressoras encontradas:</Text>
-          {discoveredPrinters.map((printer, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.printerItem,
-                selectedIP === printer.ipAddress && styles.printerItemSelected
-              ]}
-              onPress={() => handleSelectPrinter(printer)}
-            >
-              <Text style={styles.printerModel}>{printer.modelName || 'Brother Printer'}</Text>
-              <Text style={styles.printerIP}>{printer.ipAddress}</Text>
-              {printer.serialNumber && (
-                <Text style={styles.printerSerial}>S/N: {printer.serialNumber}</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <Text style={styles.divider}>OU</Text>
-
-      <TextInput
-        style={styles.TextInput}
-        onChangeText={setIp}
-        value={ip}
-        placeholder="Digite o IP manualmente"
-      />
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleStorageIP}
-      >
-        <Text style={styles.buttonText}>💾 Gravar IP</Text>
-      </TouchableOpacity>
-      
-      <Text style={styles.selectedIP}>
-        {selectedIP ? `📌 IP Selecionado: ${selectedIP}` : 'Nenhum IP selecionado'}
-      </Text>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={pickFile}>
-        <Text style={styles.buttonText}>📄 Selecionar Imagem</Text>
-      </TouchableOpacity>
-      
-      <Text style={styles.fileStatus}>{file ? `✓ ${file.split('/').pop()}` : 'Nenhum arquivo selecionado'}</Text>
-      
-      {printing && <ActivityIndicator size="large" style={styles.loader} />}
-      <Button
-        title={printing ? 'Printing...' : 'Print Selected Image'}
-        disabled={printing}
-        onPress={async () => {
-          const targetIp = selectedIP || ip;
-
-          if (!file) {
-            Alert.alert('Nenhum arquivo selecionado', 'Selecione uma imagem para imprimir');
-            return;
-          }
-
-          if (!targetIp) {
-            Alert.alert('IP não informado', 'Informe o IP da impressora antes de imprimir');
-            return;
-          }
-
-          setPrinting(true);
-
-          try {
-            console.log('Printing image from URI:', file, 'to', targetIp);
-            
-            const result = await BrotherPrint.printImage({
-              ipAddress: targetIp,
-              imageUri: file,
-              printerModel: PrinterModel.QL_820NWB,
-              labelSize: LabelSize.DieCutW17H54,
-            });
-            
-            console.log('Print result:', result);
-            Alert.alert('Sucesso', result.message || 'Imagem enviada para impressão');
-          } catch (error: any) {
-            console.error('Failed to print image', error);
-            Alert.alert('Erro ao imprimir', error.message || String(error));
-          } finally {
-            setPrinting(false);
-          }
-        }}
-      />
-    </View>
-
+    <>
+      {screen === 'printer' && <PrinterScreen onGoToLogin={() => setScreen('login')} />}
+      {screen === 'login' && <LoginScreen onGoToPrinter={() => setScreen('printer')} onLoginResult={(desc) => { setLoginResultDesc(desc); setScreen('result'); }} />}
+      {screen === 'result' && <ResultScreen description={loginResultDesc} onBack={() => setScreen('login')} />}
+    </>
   );
 }
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
@@ -320,6 +164,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+  },
+  logoCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#bebebe',
+    shadowOffset: { width: 8, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#374151',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  headerSubtitle: {
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  neuContainer: {
+    backgroundColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: -6, height: -6 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  neuInset: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    padding: 12,
+    borderRadius: 14,
+    shadowColor: '#bebebe',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+  },
+  neuButton: {
+    backgroundColor: '#EEF2F6',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#bebebe',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+  },
+  tokenInput: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 8,
+    color: '#1f2937',
+  },
+  smallText: {
+    color: '#6b7280',
   },
 });
 

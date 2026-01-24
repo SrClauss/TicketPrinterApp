@@ -25,9 +25,18 @@ interface BrotherPrintModuleInterface {
 
 const { BrotherPrintModule } = NativeModules;
 
-if (!BrotherPrintModule) {
-  throw new Error('BrotherPrintModule not found. Make sure the native module is properly linked.');
-}
+// Provide a safe mock implementation when the native module is not available
+const ModuleImpl: BrotherPrintModuleInterface = (BrotherPrintModule as BrotherPrintModuleInterface) || {
+  async printImage(_ipAddress: string, _imageUri: string, _printerModel: string, _labelSize: string) {
+    return { status: 'mock', message: 'BrotherPrintModule not available on this platform' };
+  },
+  async pingPrinter(_ipAddress: string) {
+    return { available: false, error: 'BrotherPrintModule not available' };
+  },
+  async discoverPrinters(_timeoutSeconds: number) {
+    return [];
+  }
+};
 
 export enum PrinterModel {
   QL_820NWB = 'QL_820NWB',
