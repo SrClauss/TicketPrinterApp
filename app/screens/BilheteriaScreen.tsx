@@ -8,9 +8,13 @@ import SafeLogger from '../utils/SafeLogger';
 
 type Props = {
   onBack: () => void;
+  onOpenList?: () => void;
+  onOpenCreate?: () => void;
+  onOpenScan?: () => void;
+  onOpenSearch?: () => void;
 };
 
-export default function BilheteriaScreen({ onBack }: Props) {
+export default function BilheteriaScreen({ onBack, onOpenList, onOpenCreate, onOpenScan, onOpenSearch }: Props) {
   const [loading, setLoading] = useState(false);
   const [evento, setEvento] = useState<any | null>(null);
 
@@ -55,6 +59,11 @@ export default function BilheteriaScreen({ onBack }: Props) {
           <Text>Nenhum evento carregado.</Text>
         )
       )}
+
+      <PaperButton mode="contained" onPress={() => { if (typeof onOpenList === 'function') onOpenList(); else Alert.alert('Funcionalidade', 'Lista de participantes não implementada na API.'); }} style={{ marginTop: 12 }}>Listar Participantes</PaperButton>
+      <PaperButton mode="contained" onPress={() => { if (typeof onOpenCreate === 'function') onOpenCreate(); else Alert.alert('Funcionalidade', 'Criar/Emitir não disponível.'); }} style={{ marginTop: 12 }}>Criar participante e emitir ingresso</PaperButton>
+      <PaperButton mode="contained" onPress={() => { if (typeof onOpenScan === 'function') onOpenScan(); else Alert.alert('Funcionalidade', 'Scanner não disponível.'); }} style={{ marginTop: 12 }}>Ler QR e imprimir</PaperButton>
+      <PaperButton mode="contained" onPress={() => { if (typeof onOpenSearch === 'function') onOpenSearch(); else Alert.alert('Funcionalidade', 'Pesquisa por CPF não disponível.'); }} style={{ marginTop: 12 }}>Pesquisar por CPF e imprimir</PaperButton>
 
       <PaperButton mode="text" onPress={onBack} style={localStyles.backButton}>Sair</PaperButton>
     </View>

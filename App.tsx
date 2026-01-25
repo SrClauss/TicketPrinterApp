@@ -25,6 +25,10 @@ import PrinterScreen from './app/screens/PrinterScreen';
 import LoginScreen from './app/screens/LoginScreen';
 import ResultScreen from './app/screens/ResultScreen';
 import BilheteriaScreen from './app/screens/BilheteriaScreen';
+import BilheteriaListScreen from './app/screens/BilheteriaListScreen';
+import BilheteriaCreateEmitScreen from './app/screens/BilheteriaCreateEmitScreen';
+import BilheteriaScanPrintScreen from './app/screens/BilheteriaScanPrintScreen';
+import BilheteriaSearchPrintScreen from './app/screens/BilheteriaSearchPrintScreen';
 import PortariaScreen from './app/screens/PortariaScreen';
 import PortariaSearchScreen from './app/screens/PortariaSearchScreen';
 
@@ -73,6 +77,19 @@ function PortariaWrapper({ navigation }: any) {
 function PortariaSearchWrapper({ navigation }: any) {
   return <PortariaSearchScreen onBack={() => navigation.goBack()} />;
 }
+
+function BilheteriaListWrapper({ navigation }: any) {
+  return <BilheteriaListScreen onBack={() => navigation.goBack()} />;
+}
+function BilheteriaCreateEmitWrapper({ navigation }: any) {
+  return <BilheteriaCreateEmitScreen onBack={() => navigation.goBack()} />;
+}
+function BilheteriaScanPrintWrapper({ navigation }: any) {
+  return <BilheteriaScanPrintScreen onBack={() => navigation.goBack()} />;
+}
+function BilheteriaSearchPrintWrapper({ navigation }: any) {
+  return <BilheteriaSearchPrintScreen onBack={() => navigation.goBack()} />;
+}
 function PrinterWrapper({ navigation }: any) {
   return <PrinterScreen onGoToLogin={() => navigation.navigate('Login')} />;
 }
@@ -88,6 +105,11 @@ function AppContent() {
         <Stack.Navigator screenOptions={{ header: M3Header }}>
           <Stack.Screen name="Login" component={LoginWrapper} options={{ title: 'Login' }} />
           <Stack.Screen name="Bilheteria" component={BilheteriaWrapper} options={{ title: 'Bilheteria' }} />
+          <Stack.Screen name="BilheteriaList" component={BilheteriaListWrapper} options={{ title: 'Lista de Participantes' }} />
+          <Stack.Screen name="BilheteriaCreateEmit" component={BilheteriaCreateEmitWrapper} options={{ title: 'Emitir Ingresso' }} />
+          <Stack.Screen name="BilheteriaScanPrint" component={BilheteriaScanPrintWrapper} options={{ title: 'Ler QR e Imprimir' }} />
+          <Stack.Screen name="BilheteriaSearchPrint" component={BilheteriaSearchPrintWrapper} options={{ title: 'Buscar por CPF e Imprimir' }} />
+
           <Stack.Screen name="Portaria" component={PortariaWrapper} options={{ title: 'Portaria' }} />
           <Stack.Screen name="PortariaSearch" component={PortariaSearchWrapper} options={{ title: 'Pesquisa Portaria' }} />
           <Stack.Screen name="Printer" component={PrinterWrapper} options={{ title: 'Impressora' }} />
