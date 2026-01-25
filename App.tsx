@@ -26,6 +26,7 @@ import LoginScreen from './app/screens/LoginScreen';
 import ResultScreen from './app/screens/ResultScreen';
 import BilheteriaScreen from './app/screens/BilheteriaScreen';
 import PortariaScreen from './app/screens/PortariaScreen';
+import PortariaSearchScreen from './app/screens/PortariaSearchScreen';
 
 
 
@@ -67,7 +68,10 @@ function BilheteriaWrapper({ navigation }: any) {
   return <BilheteriaScreen onBack={() => navigation.goBack()} />;
 }
 function PortariaWrapper({ navigation }: any) {
-  return <PortariaScreen onBack={() => navigation.goBack()} />;
+  return <PortariaScreen onBack={() => navigation.goBack()} onOpenSearch={() => navigation.navigate('PortariaSearch')} />;
+}
+function PortariaSearchWrapper({ navigation }: any) {
+  return <PortariaSearchScreen onBack={() => navigation.goBack()} />;
 }
 function PrinterWrapper({ navigation }: any) {
   return <PrinterScreen onGoToLogin={() => navigation.navigate('Login')} />;
@@ -85,6 +89,7 @@ function AppContent() {
           <Stack.Screen name="Login" component={LoginWrapper} options={{ title: 'Login' }} />
           <Stack.Screen name="Bilheteria" component={BilheteriaWrapper} options={{ title: 'Bilheteria' }} />
           <Stack.Screen name="Portaria" component={PortariaWrapper} options={{ title: 'Portaria' }} />
+          <Stack.Screen name="PortariaSearch" component={PortariaSearchWrapper} options={{ title: 'Pesquisa Portaria' }} />
           <Stack.Screen name="Printer" component={PrinterWrapper} options={{ title: 'Impressora' }} />
           <Stack.Screen name="Result" component={ResultWrapper} options={{ title: 'Resultado' }} />
         </Stack.Navigator>
