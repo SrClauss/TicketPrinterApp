@@ -65,6 +65,15 @@ Bilheteria (app/routers/bilheteria.py)
   - Auth: Depends on verify_token_bilheteria
   - Description: Search participants by name/email/CPF.
 
+- GET /participantes/list
+  - Response: Paginated list of participants
+  - Auth: Depends on verify_token_bilheteria
+  - Description: List participants with pagination and optional filters.
+    - Default pagination: GET /participantes/list returns first 20 participants.
+    - Custom pagination & filter: GET /participantes/list?page=2&per_page=50&nome=joão returns page 2 (50 items) matching 'joão' case-insensitively.
+  - Example cURL:
+    curl -H "X-Token-Bilheteria: <token>" "https://<host>/api/bilheteria/participantes/list?page=1&per_page=20&nome=joão"
+
 - GET /busca-credenciamento?nome=&email=
   - Response: List[Dict]
   - Auth: Depends on verify_token_bilheteria

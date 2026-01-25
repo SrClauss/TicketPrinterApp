@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Alert, FlatList } from 'react-native';
-import { Text, ActivityIndicator as PaperActivityIndicator, Button as PaperButton, List } from 'react-native-paper';
+import { Text, TextInput as PaperTextInput, ActivityIndicator as PaperActivityIndicator, Button as PaperButton, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
@@ -13,6 +13,8 @@ export default function BilheteriaListScreen({ onBack }: Props) {
   const [items, setItems] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [perPage, setPerPage] = useState(20);
+  const [search, setSearch] = useState('');
 
   useEffect(() => { loadPage(1); }, []);
 
@@ -27,9 +29,11 @@ export default function BilheteriaListScreen({ onBack }: Props) {
       const base = getApiBaseUrl();
       const headers: any = {};
       if (token) headers['X-Token-Bilheteria'] = token;
-      // try common paginated endpoints
+      // try common paginated endpoints (prefer new paginated /participantes/list)
+      const searchParam = search ? `&nome=${encodeURIComponent(search)}` : '';
       const urlsToTry = [
-        `${base}/api/bilheteria/participantes?page=${p}&limit=20`,
+        `${base}/api/bilheteria/participantes/list?page=${p}&per_page=${perPage}${searchParam}`,
+        `${base}/api/bilheteria/participantes?page=${p}&limit=${perPage}${searchParam}`,
         `${base}/api/bilheteria/participantes`,
       ];
       let res: Response | null = null;
@@ -55,7 +59,7 @@ export default function BilheteriaListScreen({ onBack }: Props) {
       const parsed = tryParseJson(text);
       if (Array.isArray(parsed)) {
         setItems(prev => p === 1 ? parsed : prev.concat(parsed));
-        setHasMore(parsed.length >= 20);
+        setHasMore(parsed.length >= perPage);
       } else if (parsed && parsed.items) {
         setItems(prev => p === 1 ? parsed.items : prev.concat(parsed.items));
         setHasMore(parsed.page < parsed.totalPages);
@@ -73,6 +77,8 @@ export default function BilheteriaListScreen({ onBack }: Props) {
   return (
     <View style={[styles.container, styles.screenPadding]}>
       <Text style={styles.title}>Participantes</Text>
+      <PaperTextInput label="Buscar (nome)" value={search} onChangeText={setSearch} style={{ marginBottom: 8 }} />
+      <PaperButton mode="contained" onPress={() => loadPage(1)} style={{ marginBottom: 12 }}>Buscar</PaperButton>
       {loading && <PaperActivityIndicator style={styles.loader} />}
       <FlatList
         data={items}

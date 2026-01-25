@@ -77,6 +77,9 @@
 - POST `/api/bilheteria/emitir` — body `{ tipo_ingresso_id, participante_id }` → 201 (retorna `EmissaoIngressoResponse` with `ingresso` + `layout_preenchido`)
 - GET `/api/bilheteria/participante/{participante_id}` — obter participante
 - GET `/api/bilheteria/participantes/buscar?nome=&email=&cpf=` — busca (limit 20)
+- GET `/api/bilheteria/participantes/list` — lista participantes paginada.
+  - Default pagination: GET `/api/bilheteria/participantes/list` — retorna os primeiros 20 participantes.
+  - Custom pagination & filtro: GET `/api/bilheteria/participantes/list?page=2&per_page=50&nome=joão` — retorna a página 2 (50 itens) com participantes cujo nome case-insensitivamente contenha "joão".
 - GET `/api/bilheteria/busca-credenciamento?nome=&email=` — busca otimizada para reimpressão
 - POST `/api/bilheteria/reimprimir/{ingresso_id}` — reimprime ingresso (retorna `EmissaoIngressoResponse`)
 - POST `/api/bilheteria/{evento_id}/ingresso/render_by_cpf?dpi={dpi}` — renderiza ingresso em JPG pelo CPF (body JSON: `{"cpf":"..."}`; header `Content-Type: application/json`). Parâmetro opcional `dpi` (int, padrão 300). Retorna image/jpeg com o JPG do ingresso (inclui Cache-Control, ETag e Last-Modified quando disponíveis); responde 400 se payload inválido e 404 se não houver ingresso para o CPF neste evento.
