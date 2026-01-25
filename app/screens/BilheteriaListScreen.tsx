@@ -27,21 +27,42 @@ export default function BilheteriaListScreen({ onBack }: Props) {
       const base = getApiBaseUrl();
       const headers: any = {};
       if (token) headers['X-Token-Bilheteria'] = token;
-      // try common paginated endpoints
-      const urlsToTry = [
-        `${base}/api/bilheteria/participantes?page=${p}&limit=20`,
-        `${base}/api/bilheteria/participantes`,
-      ];
       let res: Response | null = null;
       let text = '';
-      for (const url of urlsToTry) {
-        try {
-          // attempt fetch
-          res = await fetch(url, { headers });
-          text = await res.text();
-          if (res.ok) break; // success
-        } catch (e) { SafeLogger.error('fetch error', e); res = null; }
+
+      // try documented admin paginated endpoint if possible
+      try {
+        const eventoRes = await fetch(`${base}/api/bilheteria/evento`, { headers });
+        if (eventoRes.ok) {
+          const eventoText = await eventoRes.text();
+          let ev: any = null;
+          try { ev = JSON.parse(eventoText); } catch { ev = null; }
+          const eventoId = ev?._id || ev?.id;
+          if (eventoId) {
+            const adminUrl = `${base}/admin/eventos/${encodeURIComponent(eventoId)}/participantes?page=${p}&per_page=20&busca=`;
+            try {
+              res = await fetch(adminUrl, { headers });
+              text = await res.text();
+            } catch (e) { SafeLogger.error('fetch admin error', e); res = null; }
+          }
+        }
+      } catch (e) { SafeLogger.error('evento fetch error', e); }
+
+      if (!res || !res.ok) {
+        // fallback to older endpoints
+        const urlsToTry = [
+          `${base}/api/bilheteria/participantes?page=${p}&limit=20`,
+          `${base}/api/bilheteria/participantes`,
+        ];
+        for (const url of urlsToTry) {
+          try {
+            res = await fetch(url, { headers });
+            text = await res.text();
+            if (res.ok) break;
+          } catch (e) { SafeLogger.error('fetch error', e); res = null; }
+        }
       }
+
       if (!res) { Alert.alert('Erro', 'Não foi possível conectar à API'); return; }
       if (!res.ok) {
         if (res.status === 404) {
