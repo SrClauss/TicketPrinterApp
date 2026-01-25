@@ -120,3 +120,6 @@ dependencies {
     // Brother Print SDK
     implementation files('libs/BrotherPrintLibrary.aar')
 }
+
+// Ensure vector icons fonts are bundled into the APK (Material icons / MaterialCommunityIcons etc.)
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

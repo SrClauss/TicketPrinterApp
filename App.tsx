@@ -5,47 +5,29 @@
  * @format
  */
 
-import { StatusBar, StyleSheet, TextInput, TouchableOpacity, useColorScheme, View, ActivityIndicator, Alert, Modal, ScrollView, Pressable } from 'react-native';
+import { StatusBar, StyleSheet, useColorScheme,  } from 'react-native';
 import {
   SafeAreaProvider,
 
 } from 'react-native-safe-area-context';
-import { Text, Button } from 'react-native';
-import DocumentPicker, { types } from 'react-native-document-picker';
 
-import React, { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import BrotherPrint, { PrinterModel, LabelSize, DiscoveredPrinter } from './lib/brother';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { enableScreens } from 'react-native-screens';
+import { Provider as PaperProvider, MD3LightTheme, Appbar } from 'react-native-paper';
+import MDIcon from './app/components/MDIcon';
+
+// Improve memory usage and register native screen view managers
+enableScreens();
+
 import PrinterScreen from './app/screens/PrinterScreen';
 import LoginScreen from './app/screens/LoginScreen';
 import ResultScreen from './app/screens/ResultScreen';
+import BilheteriaScreen from './app/screens/BilheteriaScreen';
+import PortariaScreen from './app/screens/PortariaScreen';
 
-const labelSizeDescriptions: Record<LabelSize, string> = {
-  [LabelSize.DieCutW17H54]: '17mm x 54mm (Die Cut)',
-  [LabelSize.DieCutW17H87]: '17mm x 87mm (Die Cut)',
-  [LabelSize.DieCutW23H23]: '23mm x 23mm (Die Cut)',
-  [LabelSize.DieCutW29H42]: '29mm x 42mm (Die Cut)',
-  [LabelSize.DieCutW29H90]: '29mm x 90mm (Die Cut)',
-  [LabelSize.DieCutW38H90]: '38mm x 90mm (Die Cut)',
-  [LabelSize.DieCutW39H48]: '39mm x 48mm (Die Cut)',
-  [LabelSize.DieCutW52H29]: '52mm x 29mm (Die Cut)',
-  [LabelSize.DieCutW62H29]: '62mm x 29mm (Die Cut)',
-  [LabelSize.DieCutW62H100]: '62mm x 100mm (Die Cut)',
-  [LabelSize.DieCutW60H86]: '60mm x 86mm (Die Cut)',
-  [LabelSize.DieCutW54H29]: '54mm x 29mm (Die Cut)',
-  [LabelSize.DieCutW102H51]: '102mm x 51mm (Die Cut)',
-  [LabelSize.DieCutW102H152]: '102mm x 152mm (Die Cut)',
-  [LabelSize.DieCutW103H164]: '103mm x 164mm (Die Cut)',
-  [LabelSize.RollW12]: '12mm (Roll)',
-  [LabelSize.RollW29]: '29mm (Roll)',
-  [LabelSize.RollW38]: '38mm (Roll)',
-  [LabelSize.RollW50]: '50mm (Roll)',
-  [LabelSize.RollW54]: '54mm (Roll)',
-  [LabelSize.RollW62]: '62mm (Roll)',
-  [LabelSize.RollW62RB]: '62mm RB (Roll)',
-  [LabelSize.RollW102]: '102mm (Roll)',
-  [LabelSize.RollW103]: '103mm (Roll)',
-};
+
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -58,16 +40,56 @@ function App() {
   );
 }
 
-function AppContent() {
-  const [screen, setScreen] = useState<'printer' | 'login' | 'result'>('login');
-  const [loginResultDesc, setLoginResultDesc] = useState<string>('');
+const Stack = createNativeStackNavigator();
 
+function M3Header({ navigation, route, options, back }: any) {
+  const title = options.title ?? route.name;
   return (
-    <>
-      {screen === 'printer' && <PrinterScreen onGoToLogin={() => setScreen('login')} />}
-      {screen === 'login' && <LoginScreen onGoToPrinter={() => setScreen('printer')} onLoginResult={(desc) => { setLoginResultDesc(desc); setScreen('result'); }} />}
-      {screen === 'result' && <ResultScreen description={loginResultDesc} onBack={() => setScreen('login')} />}
-    </>
+    <Appbar.Header>
+      {back ? <Appbar.BackAction onPress={() => navigation.goBack()} /> : null}
+      <Appbar.Content title={title} />
+    </Appbar.Header>
+  );
+}
+
+function LoginWrapper({ navigation }: any) {
+  return (
+    <LoginScreen
+      onGoToPrinter={() => navigation.navigate('Printer')}
+      onLoginResult={(desc) => { navigation.navigate('Result', { desc }); }}
+      onGoToBilheteria={() => navigation.navigate('Bilheteria')}
+      onGoToPortaria={() => navigation.navigate('Portaria')}
+    />
+  );
+}
+
+function BilheteriaWrapper({ navigation }: any) {
+  return <BilheteriaScreen onBack={() => navigation.goBack()} />;
+}
+function PortariaWrapper({ navigation }: any) {
+  return <PortariaScreen onBack={() => navigation.goBack()} />;
+}
+function PrinterWrapper({ navigation }: any) {
+  return <PrinterScreen onGoToLogin={() => navigation.navigate('Login')} />;
+}
+function ResultWrapper({ route, navigation }: any) {
+  const desc = route.params?.desc ?? '';
+  return <ResultScreen description={desc} onBack={() => navigation.goBack()} />;
+}
+
+function AppContent() {
+  return (
+    <PaperProvider theme={MD3LightTheme} settings={{ icon: (props: any) => <MDIcon name={props.name} size={props.size ?? 24} color={props.color} /> }}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ header: M3Header }}>
+          <Stack.Screen name="Login" component={LoginWrapper} options={{ title: 'Login' }} />
+          <Stack.Screen name="Bilheteria" component={BilheteriaWrapper} options={{ title: 'Bilheteria' }} />
+          <Stack.Screen name="Portaria" component={PortariaWrapper} options={{ title: 'Portaria' }} />
+          <Stack.Screen name="Printer" component={PrinterWrapper} options={{ title: 'Impressora' }} />
+          <Stack.Screen name="Result" component={ResultWrapper} options={{ title: 'Resultado' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PaperProvider>
   );
 }
 
@@ -188,6 +210,12 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
   },
+  screenPadding: {
+    padding: 20,
+  },
+  spacedButton: {
+    marginTop: 18,
+  },
   logoCircle: {
     width: 96,
     height: 96,
@@ -212,6 +240,35 @@ export const styles = StyleSheet.create({
   headerSubtitle: {
     color: '#6b7280',
     marginTop: 4,
+  },
+  loginCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  printerIcon: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'transparent',
+  },
+  envContainer: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  envText: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  loginHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoEmoji: {
+    fontSize: 32,
   },
   neuContainer: {
     backgroundColor: '#F1F5F9',

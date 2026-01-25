@@ -1,11 +1,13 @@
-import React, {useEffect, useState} from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, ScrollView, Button } from 'react-native';
+import React, {useEffect, useState, useCallback, useMemo} from 'react';
+import { View, Alert, Modal, ScrollView, StyleSheet } from 'react-native';
+import { Appbar, useTheme, Text, Button as PaperButton, TextInput as PaperTextInput, IconButton, ActivityIndicator as PaperActivityIndicator, List, Divider } from 'react-native-paper';
 import DocumentPicker, { types } from 'react-native-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BrotherPrint, { PrinterModel, LabelSize, DiscoveredPrinter } from '../../lib/brother';
 import { styles } from '../../App';
+import SafeLogger from '../utils/SafeLogger';
 
-const labelSizeDescriptions: Record<LabelSize, string> = {
+const labelSizeDescriptions: Partial<Record<LabelSize, string>> = {
   [LabelSize.DieCutW17H54]: '17mm x 54mm (Die Cut)',
   [LabelSize.RollW62]: '62mm (Roll)',
   [LabelSize.RollW54]: '54mm (Roll)',
@@ -13,6 +15,21 @@ const labelSizeDescriptions: Record<LabelSize, string> = {
 
 type Props = {
   onGoToLogin: () => void;
+};
+
+const PrinterListItem = ({ printer, onSelect, selected }: { printer: DiscoveredPrinter; onSelect: (p: DiscoveredPrinter) => void; selected: boolean }) => {
+  const renderLeft = useCallback((props: {color: string}) => <List.Icon {...props} icon="printer" />, []);
+  const renderRight = useCallback((props: {color: string}) => <IconButton {...props} icon={selected ? 'check-circle' : 'chevron-right'} onPress={() => onSelect(printer)} />, [onSelect, printer, selected]);
+
+  return (
+    <List.Item
+      title={printer.modelName || 'Brother Printer'}
+      description={printer.ipAddress}
+      onPress={() => onSelect(printer)}
+      left={renderLeft}
+      right={renderRight}
+    />
+  );
 };
 
 export default function PrinterScreen({ onGoToLogin }: Props) {
@@ -26,6 +43,7 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
   const [selectedLabelSize, setSelectedLabelSize] = useState<LabelSize>(LabelSize.DieCutW17H54);
   const [showModelPicker, setShowModelPicker] = useState<boolean>(false);
   const [showLabelPicker, setShowLabelPicker] = useState<boolean>(false);
+  // printer related state
 
   useEffect(() => {
     async function loadIp() {
@@ -33,7 +51,7 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
         const storedIp = await AsyncStorage.getItem('printer_ip');
         if (storedIp) setSelectedIP(storedIp);
       } catch (e) {
-        console.error('Failed to load printer_ip', e);
+        SafeLogger.error('Failed to load printer_ip', e);
       }
     }
     loadIp();
@@ -47,7 +65,7 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
         if (storedModel) setSelectedModel(storedModel as PrinterModel);
         if (storedLabel) setSelectedLabelSize(storedLabel as LabelSize);
       } catch (e) {
-        console.error('Failed to load printer settings', e);
+        SafeLogger.error('Failed to load printer settings', e);
       }
     }
     loadSettings();
@@ -65,7 +83,8 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
       if (DocumentPicker.isCancel(err)) {
         // canceled
       } else {
-        console.error('Unknown error: ', err);
+        SafeLogger.error('Unknown error picking file', err);
+        Alert.alert('Erro ao selecionar arquivo', SafeLogger.sanitizeString(err?.message || String(err)));
       }
     }
   };
@@ -76,7 +95,8 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
       setSelectedIP(ip);
       setIp('');
     } catch (e) {
-      console.error('Failed to save printer_ip', e);
+      SafeLogger.error('Failed to save printer_ip', e);
+      Alert.alert('Erro', 'Não foi possível salvar o IP da impressora');
     }
   };
 
@@ -90,7 +110,8 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
         Alert.alert('Nenhuma impressora encontrada', 'Nenhuma impressora Brother foi encontrada na rede. Você pode adicionar o IP manualmente.');
       }
     } catch (error: any) {
-      Alert.alert('Erro na descoberta', error.message || String(error));
+      SafeLogger.error('Discovery error', error);
+      Alert.alert('Erro na descoberta', SafeLogger.sanitizeString(error?.message || String(error)));
     } finally {
       setDiscovering(false);
     }
@@ -108,61 +129,91 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
     setPrinting(true);
     try {
       const result = await BrotherPrint.printImage({ ipAddress: targetIp, imageUri: file!, printerModel: selectedModel, labelSize: selectedLabelSize });
-      Alert.alert('Sucesso', result.message || 'Imagem enviada para impressão');
+      Alert.alert('Sucesso', SafeLogger.sanitizeString(result?.message || 'Imagem enviada para impressão'));
     } catch (error: any) {
-      const msg = error && (error.message || String(error));
+      SafeLogger.error('Erro ao imprimir', error);
+      const msg = SafeLogger.sanitizeString(error?.message || String(error));
       Alert.alert('Erro ao imprimir', msg);
     } finally { setPrinting(false); }
   };
 
+
+
+  const theme = useTheme();
+  const appbarStyle = useMemo(() => ({ backgroundColor: theme.colors.surface }), [theme.colors.surface]);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Brother Printer</Text>
-      <TouchableOpacity style={[styles.button, discovering && styles.buttonDisabled]} onPress={handleDiscovery} disabled={discovering}>
-        <Text style={styles.buttonText}>{discovering ? 'Procurando impressoras...' : '🔍 Descobrir Impressoras'}</Text>
-      </TouchableOpacity>
-      {discovering && <ActivityIndicator size="large" style={styles.loader} />}
+      <Appbar.Header elevated style={appbarStyle}>
+        <Appbar.BackAction onPress={onGoToLogin} accessibilityLabel="Voltar" />
+        <Appbar.Content title="Brother Printer" titleStyle={localStyles.appbarTitle} />
+      </Appbar.Header>
+
+      <ScrollView contentContainerStyle={localStyles.scrollContent} keyboardShouldPersistTaps="handled">
+      <PaperButton mode="outlined" icon="magnify" onPress={handleDiscovery} loading={discovering} disabled={discovering} style={localStyles.buttonMarginVertical6}>{discovering ? 'Procurando impressoras...' : 'Descobrir Impressoras'}</PaperButton>
+      {discovering && <PaperActivityIndicator animating={discovering} size={36} style={styles.loader} />}
 
       {discoveredPrinters.length > 0 && (
         <View style={styles.printerListContainer}>
           <Text style={styles.subtitle}>Impressoras encontradas:</Text>
-          {discoveredPrinters.map((printer, index) => (
-            <TouchableOpacity key={index} style={[styles.printerItem, selectedIP === printer.ipAddress && styles.printerItemSelected]} onPress={() => handleSelectPrinter(printer)}>
-              <Text style={styles.printerModel}>{printer.modelName || 'Brother Printer'}</Text>
-              <Text style={styles.printerIP}>{printer.ipAddress}</Text>
-            </TouchableOpacity>
-          ))}
+          <List.Section>
+            { }
+            {discoveredPrinters.map((printer, index) => (
+              <PrinterListItem key={printer.ipAddress || index} printer={printer} onSelect={handleSelectPrinter} selected={selectedIP === printer.ipAddress} />
+            ))}
+          </List.Section>
         </View>
       )}
 
-      <Text style={styles.divider}>OU</Text>
-      <TextInput style={styles.TextInput} onChangeText={setIp} value={ip} placeholder="Digite o IP manualmente" />
-      <TouchableOpacity style={styles.button} onPress={handleStorageIP}><Text style={styles.buttonText}>💾 Gravar IP</Text></TouchableOpacity>
-      <Text style={styles.selectedIP}>{selectedIP ? `📌 IP Selecionado: ${selectedIP}` : 'Nenhum IP selecionado'}</Text>
+      <Divider style={localStyles.dividerMarginVertical10} />
+      <Text style={localStyles.textMarginBottom6}>Ou digite o IP manualmente</Text>
+      <PaperTextInput style={styles.TextInput} onChangeText={setIp} value={ip} placeholder="Digite o IP manualmente" mode="outlined" />
+      <PaperButton icon="content-save" mode="outlined" onPress={handleStorageIP} style={localStyles.marginTop8}>Gravar IP</PaperButton>
+      <Text style={styles.selectedIP}>{selectedIP ? `IP Selecionado: ${selectedIP}` : 'Nenhum IP selecionado'}</Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => setShowModelPicker(true)}><Text style={styles.buttonText}>🔧 Escolher Modelo: {selectedModel}</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={() => setShowLabelPicker(true)}><Text style={styles.buttonText}>📐 Escolher Tamanho: {labelSizeDescriptions[selectedLabelSize]}</Text></TouchableOpacity>
+      <PaperButton icon="tools" mode="outlined" onPress={() => setShowModelPicker(true)} style={localStyles.marginTop10}>Escolher Modelo: {selectedModel}</PaperButton>
+      <PaperButton icon="aspect-ratio" mode="outlined" onPress={() => setShowLabelPicker(true)} style={localStyles.marginTop8}>Escolher Tamanho: {labelSizeDescriptions[selectedLabelSize]}</PaperButton>
 
       <Modal visible={showModelPicker} transparent animationType="slide">
         <View style={styles.modalOverlay}><View style={styles.modalContainer}><Text style={styles.modalTitle}>Escolher Modelo</Text>
-          <ScrollView>{(Object.values(PrinterModel) as PrinterModel[]).map((m) => (<TouchableOpacity key={m} style={styles.modalItem} onPress={() => { setSelectedModel(m); setShowModelPicker(false); }}><Text>{m}</Text></TouchableOpacity>))}</ScrollView>
-          <TouchableOpacity style={styles.button} onPress={() => setShowModelPicker(false)}><Text style={styles.buttonText}>Fechar</Text></TouchableOpacity>
+          <ScrollView>{(Object.values(PrinterModel) as PrinterModel[]).map((m) => (<List.Item key={m} title={m} onPress={() => { setSelectedModel(m); setShowModelPicker(false); }} />))}</ScrollView>
+          <PaperButton mode="text" onPress={() => setShowModelPicker(false)}>Fechar</PaperButton>
         </View></View>
       </Modal>
 
       <Modal visible={showLabelPicker} transparent animationType="slide">
         <View style={styles.modalOverlay}><View style={styles.modalContainer}><Text style={styles.modalTitle}>Escolher Tamanho do Papel</Text>
-          <ScrollView>{(Object.values(LabelSize) as LabelSize[]).map((s) => (<TouchableOpacity key={s} style={styles.modalItem} onPress={() => { setSelectedLabelSize(s); setShowLabelPicker(false); }}><Text>{labelSizeDescriptions[s]}</Text></TouchableOpacity>))}</ScrollView>
-          <TouchableOpacity style={styles.button} onPress={() => setShowLabelPicker(false)}><Text style={styles.buttonText}>Fechar</Text></TouchableOpacity>
+          <ScrollView>{(Object.values(LabelSize) as LabelSize[]).map((s) => (<List.Item key={s} title={labelSizeDescriptions[s] || String(s)} onPress={() => { setSelectedLabelSize(s); setShowLabelPicker(false); }} />))}</ScrollView>
+          <PaperButton mode="text" onPress={() => setShowLabelPicker(false)}>Fechar</PaperButton>
         </View></View>
       </Modal>
 
-      <TouchableOpacity style={styles.button} onPress={pickFile}><Text style={styles.buttonText}>📄 Selecionar Imagem</Text></TouchableOpacity>
-      <Text style={styles.fileStatus}>{file ? `✓ ${file.split('/').pop()}` : 'Nenhum arquivo selecionado'}</Text>
-      {printing && <ActivityIndicator size="large" style={styles.loader} />}
-      <Button title={printing ? 'Printing...' : 'Print Selected Image'} disabled={printing} onPress={doPrint} />
+      {/* Printer-only controls: file selection, print, discovery and model/label settings */}
 
-      <TouchableOpacity style={[styles.button, {backgroundColor:'#28a745'}]} onPress={onGoToLogin}><Text style={styles.buttonText}>Ir para Login por Token</Text></TouchableOpacity>
+      <PaperButton icon="file" mode="outlined" onPress={pickFile}>Selecionar Imagem</PaperButton>
+      <Text style={styles.fileStatus}>{file ? `✓ ${file.split('/').pop()}` : 'Nenhum arquivo selecionado'}</Text>
+      {printing && <PaperActivityIndicator animating={printing} size={36} style={styles.loader} />}
+      <PaperButton icon="printer" mode="contained" loading={printing} disabled={printing} onPress={doPrint} style={localStyles.marginTop12}>{printing ? 'Enviando...' : 'Imprimir imagem selecionada'}</PaperButton>
+
+      <PaperButton mode="text" icon="login" onPress={onGoToLogin} style={localStyles.marginTop8}>Ir para Login por Token</PaperButton>
+    </ScrollView>
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  sectionContainer: { marginTop: 12, width: '100%' },
+  inputMargin: { marginBottom: 6 },
+  buttonPrimary: { backgroundColor: '#0ea5e9' },
+  buttonSuccess: { backgroundColor: '#28a745' },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  // header spacer removed; Appbar handles layout
+  headerSpacer: { width: 72 },
+  appbarTitle: { fontWeight: '700' },
+  buttonMarginVertical6: { marginVertical: 6 },
+  dividerMarginVertical10: { marginVertical: 10 },
+  textMarginBottom6: { marginBottom: 6 },
+  marginTop8: { marginTop: 8 },
+  marginTop10: { marginTop: 10 },
+  marginTop12: { marginTop: 12 },
+});

@@ -79,6 +79,9 @@
 - GET `/api/bilheteria/participantes/buscar?nome=&email=&cpf=` — busca (limit 20)
 - GET `/api/bilheteria/busca-credenciamento?nome=&email=` — busca otimizada para reimpressão
 - POST `/api/bilheteria/reimprimir/{ingresso_id}` — reimprime ingresso (retorna `EmissaoIngressoResponse`)
+- POST `/api/bilheteria/{evento_id}/ingresso/render_by_cpf?dpi={dpi}` — renderiza ingresso em JPG pelo CPF (body JSON: `{"cpf":"..."}`; header `Content-Type: application/json`). Parâmetro opcional `dpi` (int, padrão 300). Retorna image/jpeg com o JPG do ingresso (inclui Cache-Control, ETag e Last-Modified quando disponíveis); responde 400 se payload inválido e 404 se não houver ingresso para o CPF neste evento.
+  Exemplo cURL:
+  curl -X POST "https://seu-host/api/bilheteria/{evento_id}/ingresso/render_by_cpf?dpi=300" -H "Content-Type: application/json" -d '{"cpf":"123.456.789-09"}' --output ingresso.jpg
 
 Cabeçalho obrigatório: `X-Token-Bilheteria: <token>`
 

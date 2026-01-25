@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View } from 'react-native';
+import { Text, Button as PaperButton } from 'react-native-paper';
 import { styles } from '../../App';
 
 type Props = {
@@ -12,7 +13,7 @@ export default function ResultScreen({ description, onBack }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Resultado do Login</Text>
       <Text>{description}</Text>
-      <TouchableOpacity style={styles.button} onPress={onBack}><Text style={styles.buttonText}>Voltar ao Login</Text></TouchableOpacity>
+      <PaperButton mode="text" onPress={onBack} style={styles.spacedButton}>Voltar ao Login</PaperButton>
     </View>
   );
 }
