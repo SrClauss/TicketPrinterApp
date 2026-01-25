@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useRef} from 'react';
-import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Image, Linking } from 'react-native';
 import { Text, ActivityIndicator as PaperActivityIndicator, Button as PaperButton } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
@@ -22,6 +22,7 @@ export default function PortariaScreen({ onBack }: Props) {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cameraRef = useRef<RNCamera | null>(null);
+  const [cpfSearch, setCpfSearch] = useState('');
 
   const loadInfo = async () => {
     setLoading(true);
@@ -80,6 +81,93 @@ export default function PortariaScreen({ onBack }: Props) {
     }
   };
 
+  const buscarPorCPF = async () => {
+    if (!cpfSearch || cpfSearch.trim().length === 0) { setErrorMessage('Informe um CPF válido'); setErrorModalVisible(true); return; }
+    setLoading(true);
+    setParticipant(null);
+    setParticipantModalVisible(false);
+    setErrorMessage(null);
+    setErrorModalVisible(false);
+    try {
+      const token = await AsyncStorage.getItem('bilheteria_token');
+      const base = getApiBaseUrl();
+      const headers: any = {};
+      if (token) headers['X-Token-Bilheteria'] = token;
+      const searchRes = await fetch(`${base}/api/bilheteria/participantes/buscar?cpf=${encodeURIComponent(cpfSearch)}`, { headers });
+      const text = await searchRes.text();
+      if (!searchRes.ok) {
+        setErrorMessage(`Erro na busca: ${searchRes.status} ${SafeLogger.sanitizeString(text)}`);
+        setErrorModalVisible(true);
+        return;
+      }
+      let results: any[] = [];
+      try { results = JSON.parse(text); } catch { results = []; }
+      if (!results || results.length === 0) {
+        setErrorMessage('Nenhum participante encontrado para o CPF informado.');
+        setErrorModalVisible(true);
+        return;
+      }
+      const participante = results[0];
+      // fetch participant details to find ingressos
+      const id = participante._id || participante.id || participante._doc?._id;
+      if (!id) {
+        setParticipant(participante);
+        setParticipantModalVisible(true);
+        return;
+      }
+      const detailRes = await fetch(`${base}/api/bilheteria/participante/${encodeURIComponent(id)}`, { headers });
+      const detailText = await detailRes.text();
+      if (!detailRes.ok) {
+        // fallback: show participante basic info
+        setParticipant(participante);
+        setParticipantModalVisible(true);
+        return;
+      }
+      let details: any;
+      try { details = JSON.parse(detailText); } catch { details = detailText; }
+      // try to find an ingresso
+      let foundIngresso: any = null;
+      const searchForIngresso = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj._id && (obj.evento_id || obj.evento?._id || obj.evento_id)) return { ingresso_id: obj._id, evento_id: obj.evento_id || (obj.evento?._id) };
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if (Array.isArray(v)) {
+            for (const item of v) {
+              const r = searchForIngresso(item);
+              if (r) return r;
+            }
+          } else if (typeof v === 'object') {
+            const r = searchForIngresso(v);
+            if (r) return r;
+          }
+        }
+        return null;
+      };
+      foundIngresso = searchForIngresso(details);
+      const combined = { participante: details, foundIngresso };
+      setParticipant(combined);
+      setParticipantModalVisible(true);
+    } catch (e: any) {
+      setErrorMessage(`Erro de conexão: ${String(e)}`);
+      setErrorModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openIngressoImage = async (ingressoId?: string, eventoId?: string) => {
+    if (!ingressoId || !eventoId) { Alert.alert('Imagem indisponível', 'Não foi possível localizar ingresso ou evento para baixar a imagem.'); return; }
+    const base = getApiBaseUrl();
+    const url = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
+    try {
+      // open in external browser so user can download
+      await Linking.openURL(url);
+    } catch (e:any) {
+      Alert.alert('Erro ao abrir imagem', String(e));
+    }
+  };
+
   const handleBarCodeRead = ({ data }: { data: string }) => {
     if (!data) return;
     // prevent multiple calls
@@ -113,6 +201,18 @@ export default function PortariaScreen({ onBack }: Props) {
           <Text>Nenhuma informação carregada.</Text>
         )
       )}
+
+      <TextInput
+        placeholder="Buscar participante por CPF"
+        placeholderTextColor="#666"
+        style={localStyles.manualInput}
+        value={cpfSearch}
+        onChangeText={setCpfSearch}
+      />
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+        <PaperButton mode="contained" onPress={buscarPorCPF}>Buscar por CPF</PaperButton>
+        <PaperButton mode="outlined" onPress={() => { setCpfSearch(''); }}>Limpar</PaperButton>
+      </View>
 
       <PaperButton mode="contained" onPress={() => setScanning(true)} style={{ marginTop: 18 }}>Scan QR</PaperButton>
 
