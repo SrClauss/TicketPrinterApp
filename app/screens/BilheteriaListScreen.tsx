@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Alert, FlatList } from 'react-native';
+import { View, Alert, FlatList, TouchableOpacity } from 'react-native';
 import { Text, TextInput as PaperTextInput, ActivityIndicator as PaperActivityIndicator, Button as PaperButton, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
@@ -74,6 +74,38 @@ export default function BilheteriaListScreen({ onBack }: Props) {
     } finally { setLoading(false); }
   };
 
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const renderParticipant = ({ item }: any) => {
+    const id = item._id || item.id || String(Math.random());
+    const expanded = expandedId === id;
+
+    return (
+      <View style={{ borderBottomWidth: 1, borderColor: '#eee' }}>
+        <TouchableOpacity
+          onPress={() => setExpandedId(expanded ? null : id)}
+          style={{ padding: 12, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: '600' }}>{item.nome || item.nome_completo || '—'}</Text>
+            <Text style={{ color: '#666', marginTop: 4 }}>{item.cpf || '-'}</Text>
+          </View>
+          <Text style={{ color: '#0ea5e9', fontWeight: '700' }}>{expanded ? 'Ocultar' : 'Detalhes'}</Text>
+        </TouchableOpacity>
+
+        {expanded && (
+          <View style={{ padding: 12, backgroundColor: '#fafafa' }}>
+            <Text style={{ marginBottom: 6 }}>Email: {item.email || '-'}</Text>
+            <Text style={{ marginBottom: 6 }}>Telefone: {item.telefone || '-'}</Text>
+            <Text style={{ marginBottom: 6 }}>Empresa: {item.empresa || '-'}</Text>
+            <Text style={{ marginBottom: 6 }}>Nacionalidade: {item.nacionalidade || '-'}</Text>
+            <Text style={{ marginTop: 6, color: '#374151' }}>Ingressos: {Array.isArray(item.ingressos) ? item.ingressos.length : 0}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, styles.screenPadding]}>
       <Text style={styles.title}>Participantes</Text>
@@ -83,9 +115,7 @@ export default function BilheteriaListScreen({ onBack }: Props) {
       <FlatList
         data={items}
         keyExtractor={(i, idx) => i._id || i.id || String(idx)}
-        renderItem={({ item }) => (
-          <List.Item title={item.nome || item.nome_completo || JSON.stringify(item)} description={item.email || ''} />
-        )}
+        renderItem={renderParticipant}
         onEndReached={() => { if (hasMore) loadPage(page + 1); }}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={() => <Text>Nenhum participante carregado.</Text>}
