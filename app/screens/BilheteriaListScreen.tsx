@@ -58,13 +58,22 @@ export default function BilheteriaListScreen({ onBack }: Props) {
       }
       const parsed = tryParseJson(text);
       if (Array.isArray(parsed)) {
+        // API returned a plain array of participants
         setItems(prev => p === 1 ? parsed : prev.concat(parsed));
         setHasMore(parsed.length >= perPage);
+
+      } else if (parsed && parsed.participantes) {
+        // Newer backend shape: { participantes: [...], total_count, total_pages, current_page, per_page }
+        setItems(prev => p === 1 ? parsed.participantes : prev.concat(parsed.participantes));
+        setHasMore((parsed.current_page || 1) < (parsed.total_pages || 1));
+
       } else if (parsed && parsed.items) {
+        // Older/alternative paginated shape: { items: [...], page, totalPages }
         setItems(prev => p === 1 ? parsed.items : prev.concat(parsed.items));
-        setHasMore(parsed.page < parsed.totalPages);
+        setHasMore((parsed.page || 1) < (parsed.totalPages || 1));
+
       } else {
-        // unknown format
+        // Unknown format — fall back to single object
         setItems(p === 1 ? [parsed] : items.concat([parsed]));
         setHasMore(false);
       }
