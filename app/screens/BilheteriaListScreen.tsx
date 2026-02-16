@@ -16,7 +16,7 @@ export default function BilheteriaListScreen({ onBack }: Props) {
   const [perPage, setPerPage] = useState(20);
   const [search, setSearch] = useState('');
 
-  useEffect(() => { loadPage(1); }, []);
+  useEffect(() => { setSearch(''); loadPage(1); }, []);
 
   const tryParseJson = (text: string) => {
     try { return JSON.parse(text); } catch { return null; }
@@ -147,7 +147,13 @@ export default function BilheteriaListScreen({ onBack }: Props) {
   return (
     <View style={[styles.container, styles.screenPadding]}>
       <Text style={styles.title}>Participantes</Text>
-      <PaperTextInput label="Buscar (nome)" value={search} onChangeText={setSearch} style={{ marginBottom: 8 }} />
+      <PaperTextInput
+        label="Buscar (nome)"
+        value={search}
+        onChangeText={setSearch}
+        style={{ marginBottom: 8 }}
+        right={<PaperTextInput.Icon name={search ? 'close' : 'magnify'} onPress={() => { if (search) { setSearch(''); loadPage(1); } }} />}
+      />
       <PaperButton mode="contained" onPress={() => loadPage(1)} style={{ marginBottom: 12 }}>Buscar</PaperButton>
       {loading && <PaperActivityIndicator style={styles.loader} />}
       <FlatList
