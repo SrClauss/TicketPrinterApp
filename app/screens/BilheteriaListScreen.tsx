@@ -57,26 +57,55 @@ export default function BilheteriaListScreen({ onBack }: Props) {
         return;
       }
       const parsed = tryParseJson(text);
+
+      // helpers to dedupe by id
+      const uniqueList = (arr: any[]) => {
+        const map = new Map<string, any>();
+        for (const it of arr || []) {
+          const key = (it && (it._id || it.id)) || JSON.stringify(it);
+          if (!map.has(key)) map.set(key, it);
+        }
+        return Array.from(map.values());
+      };
+      const mergeUnique = (prev: any[], incoming: any[]) => {
+        const seen = new Set(prev.map(i => i._id || i.id));
+        const out = [...prev];
+        for (const it of incoming || []) {
+          const k = it._id || it.id;
+          if (!k) {
+            // include items without id (rare)
+            out.push(it);
+            continue;
+          }
+          if (!seen.has(k)) { seen.add(k); out.push(it); }
+        }
+        return out;
+      };
+
       if (Array.isArray(parsed)) {
         // API returned a plain array of participants
-        setItems(prev => p === 1 ? parsed : prev.concat(parsed));
+        setItems(prev => p === 1 ? uniqueList(parsed) : mergeUnique(prev, parsed));
         setHasMore(parsed.length >= perPage);
 
       } else if (parsed && parsed.participantes) {
         // Newer backend shape: { participantes: [...], total_count, total_pages, current_page, per_page }
-        setItems(prev => p === 1 ? parsed.participantes : prev.concat(parsed.participantes));
+        const incoming = parsed.participantes || [];
+        setItems(prev => p === 1 ? uniqueList(incoming) : mergeUnique(prev, incoming));
         setHasMore((parsed.current_page || 1) < (parsed.total_pages || 1));
 
       } else if (parsed && parsed.items) {
         // Older/alternative paginated shape: { items: [...], page, totalPages }
-        setItems(prev => p === 1 ? parsed.items : prev.concat(parsed.items));
+        const incoming = parsed.items || [];
+        setItems(prev => p === 1 ? uniqueList(incoming) : mergeUnique(prev, incoming));
         setHasMore((parsed.page || 1) < (parsed.totalPages || 1));
 
       } else {
         // Unknown format — fall back to single object
-        setItems(p === 1 ? [parsed] : items.concat([parsed]));
+        const single = parsed ? [parsed] : [];
+        setItems(prev => p === 1 ? uniqueList(single) : mergeUnique(prev, single));
         setHasMore(false);
       }
+
       setPage(p);
     } catch (e: any) {
       Alert.alert('Erro', String(e));
