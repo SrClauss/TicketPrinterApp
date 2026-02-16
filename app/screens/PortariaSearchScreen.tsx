@@ -63,18 +63,19 @@ export default function PortariaSearchScreen({ onBack }: Props) {
       let details: any;
       try { details = JSON.parse(detailText); } catch { details = detailText; }
       // try to find an ingresso
-      let foundIngresso: any = null;
-      const searchForIngresso = (obj: any) => {
+      type FoundIngresso = { ingresso_id: string; evento_id: string } | null;
+      let foundIngresso: FoundIngresso = null;
+      const searchForIngresso = (obj: any): FoundIngresso => {
         if (!obj || typeof obj !== 'object') return null;
-        if (obj._id && (obj.evento_id || (obj.evento && obj.evento._id))) return { ingresso_id: obj._id, evento_id: obj.evento_id || (obj.evento && obj.evento._id) };
-        for (const k of Object.keys(obj)) {
-          const v = obj[k];
+        if ((obj as any)._id && ((obj as any).evento_id || ((obj as any).evento && (obj as any).evento._id))) return { ingresso_id: (obj as any)._id, evento_id: (obj as any).evento_id || ((obj as any).evento && (obj as any).evento._id) };
+        for (const k of Object.keys(obj as Record<string, unknown>)) {
+          const v = (obj as any)[k];
           if (Array.isArray(v)) {
             for (const item of v) {
               const r = searchForIngresso(item);
               if (r) return r;
             }
-          } else if (typeof v === 'object') {
+          } else if (v && typeof v === 'object') {
             const r = searchForIngresso(v);
             if (r) return r;
           }

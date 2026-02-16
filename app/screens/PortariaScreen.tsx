@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useRef} from 'react';
-import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Platform, PermissionsAndroid } from 'react-native';
 import { Text, ActivityIndicator as PaperActivityIndicator, Button as PaperButton } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
@@ -92,6 +92,34 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
     fetchIngresso(data);
   };
 
+  const requestCameraPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permissão de Câmera',
+            message: 'Este aplicativo precisa acessar sua câmera para escanear QR codes.',
+            buttonNeutral: 'Perguntar depois',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          setScanning(true);
+        } else {
+          Alert.alert('Permissão negada', 'Não é possível usar a câmera sem permissão.');
+        }
+      } catch (err) {
+        console.warn(err);
+        Alert.alert('Erro', 'Falha ao solicitar permissão de câmera.');
+      }
+    } else {
+      // iOS: permissões são solicitadas automaticamente
+      setScanning(true);
+    }
+  };
+
   // local styles
   const localStyles = StyleSheet.create({
     itemTitle: { fontWeight: '700', marginBottom: 8 },
@@ -121,7 +149,7 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
         <PaperButton mode="contained" onPress={() => { if (typeof onOpenSearch === 'function') onOpenSearch(); else Alert.alert('Navegação', 'Funcionalidade de pesquisa não disponível.'); }}>Pesquisar por CPF</PaperButton>
-        <PaperButton mode="contained" onPress={() => setScanning(true)}>Scan QR</PaperButton>
+        <PaperButton mode="contained" onPress={requestCameraPermission}>Scan QR</PaperButton>
       </View>
 
       <PaperButton mode="text" onPress={onBack} style={localStyles.backButton}>Sair</PaperButton>
@@ -129,7 +157,7 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
       <Modal visible={scanning} animationType="slide">
         <View style={localStyles.scannerModal}>
           <RNCamera
-            ref={ref => (cameraRef.current = ref)}
+            ref={ref => { cameraRef.current = ref; }}
             style={localStyles.cameraPreview}
             captureAudio={false}
             onBarCodeRead={handleBarCodeRead}

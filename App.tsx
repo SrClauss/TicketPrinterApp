@@ -69,7 +69,13 @@ function LoginWrapper({ navigation }: any) {
 }
 
 function BilheteriaWrapper({ navigation }: any) {
-  return <BilheteriaScreen onBack={() => navigation.goBack()} />;
+  return <BilheteriaScreen
+    onBack={() => navigation.goBack()}
+    onOpenList={() => navigation.navigate('BilheteriaList')}
+    onOpenCreate={() => navigation.navigate('BilheteriaCreateEmit')}
+    onOpenScan={() => navigation.navigate('BilheteriaScanPrint')}
+    onOpenSearch={() => navigation.navigate('BilheteriaSearchPrint')}
+  />;
 }
 function PortariaWrapper({ navigation }: any) {
   return <PortariaScreen onBack={() => navigation.goBack()} onOpenSearch={() => navigation.navigate('PortariaSearch')} />;
