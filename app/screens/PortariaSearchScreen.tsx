@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
+import { useNavigation } from '@react-navigation/native';
 
 type Props = {
   onBack: () => void;
@@ -18,6 +19,8 @@ export default function PortariaSearchScreen({ onBack }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
 
+  const navigation = useNavigation();
+
   const buscarPorCPF = async () => {
     if (!cpfSearch || cpfSearch.trim().length === 0) { setErrorMessage('Informe um CPF válido'); setErrorModalVisible(true); return; }
     setLoading(true);
@@ -25,68 +28,57 @@ export default function PortariaSearchScreen({ onBack }: Props) {
     setParticipantModalVisible(false);
     setErrorMessage(null);
     setErrorModalVisible(false);
+
     try {
       const token = await AsyncStorage.getItem('bilheteria_token');
       const base = getApiBaseUrl();
       const headers: any = {};
       if (token) headers['X-Token-Bilheteria'] = token;
-      const searchRes = await fetch(`${base}/api/bilheteria/participantes/buscar?cpf=${encodeURIComponent(cpfSearch)}`, { headers });
-      const text = await searchRes.text();
-      if (!searchRes.ok) {
-        setErrorMessage(`Erro na busca: ${searchRes.status} ${SafeLogger.sanitizeString(text)}`);
+
+      // Use backend route that returns the ingresso for the current event (same used by Bilheteria)
+      const res = await fetch(`${base}/api/bilheteria/ingresso-por-cpf?cpf=${encodeURIComponent(cpfSearch)}`, { headers });
+      if (!res.ok) {
+        // fallback to older participant search so UI still works when endpoint missing
+        console.log('[Portaria] ingresso-por-cpf returned', res.status);
+        const text = await res.text();
+        setErrorMessage(`Erro na busca: ${res.status} ${SafeLogger.sanitizeString(text)}`);
         setErrorModalVisible(true);
         return;
       }
-      let results: any[] = [];
-      try { results = JSON.parse(text); } catch { results = []; }
-      if (!results || results.length === 0) {
-        setErrorMessage('Nenhum participante encontrado para o CPF informado.');
+
+      const data = await res.json();
+      const ingresso = data.ingresso;
+      const participante = data.participante;
+
+      if (!ingresso) {
+        setErrorMessage('Nenhum ingresso encontrado para este CPF no evento atual.');
         setErrorModalVisible(true);
         return;
       }
-      const participante = results[0];
-      // fetch participant details to find ingressos
-      const id = participante._id || participante.id || (participante._doc && participante._doc._id);
-      if (!id) {
-        setParticipant(participante);
-        setParticipantModalVisible(true);
-        return;
+
+      // Build image URL (same logic as BilheteriaSearchPrintScreen)
+      let imageUrl: string;
+      if (ingresso.qrcode_hash) {
+        imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(ingresso.qrcode_hash)}?evento_id=${encodeURIComponent(ingresso.evento_id)}`;
+      } else {
+        imageUrl = `${base}/api/evento/${encodeURIComponent(ingresso.evento_id)}/ingresso/${encodeURIComponent(ingresso._id)}/render.jpg`;
       }
-      const detailRes = await fetch(`${base}/api/bilheteria/participante/${encodeURIComponent(id)}`, { headers });
-      const detailText = await detailRes.text();
-      if (!detailRes.ok) {
-        // fallback: show participante basic info
-        setParticipant(participante);
-        setParticipantModalVisible(true);
-        return;
-      }
-      let details: any;
-      try { details = JSON.parse(detailText); } catch { details = detailText; }
-      // try to find an ingresso
-      type FoundIngresso = { ingresso_id: string; evento_id: string } | null;
-      let foundIngresso: FoundIngresso = null;
-      const searchForIngresso = (obj: any): FoundIngresso => {
-        if (!obj || typeof obj !== 'object') return null;
-        if ((obj as any)._id && ((obj as any).evento_id || ((obj as any).evento && (obj as any).evento._id))) return { ingresso_id: (obj as any)._id, evento_id: (obj as any).evento_id || ((obj as any).evento && (obj as any).evento._id) };
-        for (const k of Object.keys(obj as Record<string, unknown>)) {
-          const v = (obj as any)[k];
-          if (Array.isArray(v)) {
-            for (const item of v) {
-              const r = searchForIngresso(item);
-              if (r) return r;
-            }
-          } else if (v && typeof v === 'object') {
-            const r = searchForIngresso(v);
-            if (r) return r;
-          }
+
+      // Navigate to TicketDetails (same screen used by Bilheteria)
+      navigation.navigate('TicketDetails', {
+        ticket: {
+          id: ingresso._id,
+          name: participante?.nome || participante?.nome_completo || 'Ingresso',
+          details: participante?.cpf || '',
+          imageUrl,
+          token,
+          eventoId: ingresso.evento_id,
+          qrcode_hash: ingresso.qrcode_hash || null,
         }
-        return null;
-      };
-      foundIngresso = searchForIngresso(details);
-      const combined = { participante: details, foundIngresso };
-      setParticipant(combined);
-      setParticipantModalVisible(true);
+      });
+
     } catch (e: any) {
+      console.error('[Portaria] buscarPorCPF error', e);
       setErrorMessage(`Erro de conexão: ${String(e)}`);
       setErrorModalVisible(true);
     } finally {
@@ -94,15 +86,30 @@ export default function PortariaSearchScreen({ onBack }: Props) {
     }
   };
 
-  const openIngressoImage = async (ingressoId?: string, eventoId?: string) => {
+  const openIngressoImage = async (ingressoId?: string, eventoId?: string, qrcode_hash?: string | null) => {
     if (!ingressoId || !eventoId) { Alert.alert('Imagem indisponível', 'Não foi possível localizar ingresso ou evento para baixar a imagem.'); return; }
     const base = getApiBaseUrl();
-    const url = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
-    try {
-      await Linking.openURL(url);
-    } catch (e:any) {
-      Alert.alert('Erro ao abrir imagem', String(e));
+    const token = await AsyncStorage.getItem('bilheteria_token');
+
+    let imageUrl: string;
+    if (qrcode_hash) {
+      imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(qrcode_hash)}?evento_id=${encodeURIComponent(eventoId)}`;
+    } else {
+      imageUrl = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
     }
+
+    // Prefer opening TicketDetails (consistent with Bilheteria behavior)
+    navigation.navigate('TicketDetails', {
+      ticket: {
+        id: ingressoId,
+        name: 'Ingresso',
+        details: '',
+        imageUrl,
+        token,
+        eventoId,
+        qrcode_hash: qrcode_hash || null,
+      }
+    });
   };
 
   const localStyles = StyleSheet.create({
@@ -148,7 +155,7 @@ export default function PortariaSearchScreen({ onBack }: Props) {
                 <Text>{participant.foundIngresso ? `Ingresso: ${participant.foundIngresso.ingresso_id}` : 'Nenhum ingresso identificado'}</Text>
 
                 {participant.foundIngresso ? (
-                  <PaperButton mode="contained" onPress={() => openIngressoImage(participant.foundIngresso.ingresso_id, participant.foundIngresso.evento_id)} style={localStyles.modalClose}>Abrir imagem do ingresso</PaperButton>
+                  <PaperButton mode="contained" onPress={() => openIngressoImage(participant.foundIngresso.ingresso_id, participant.foundIngresso.evento_id, participant.foundIngresso.qrcode_hash)} style={localStyles.modalClose}>Abrir ingresso (visualizar/print)</PaperButton>
                 ) : null}
 
               </View>
