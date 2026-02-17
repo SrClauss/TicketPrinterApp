@@ -31,6 +31,7 @@ import BilheteriaScanPrintScreen from './app/screens/BilheteriaScanPrintScreen';
 import BilheteriaSearchPrintScreen from './app/screens/BilheteriaSearchPrintScreen';
 import PortariaScreen from './app/screens/PortariaScreen';
 import PortariaSearchScreen from './app/screens/PortariaSearchScreen';
+import TicketDetailsScreen from './app/screens/TicketDetailsScreen';
 
 
 
@@ -103,6 +104,10 @@ function ResultWrapper({ route, navigation }: any) {
   const desc = route.params?.desc ?? '';
   return <ResultScreen description={desc} onBack={() => navigation.goBack()} />;
 }
+function TicketDetailsWrapper({ route, navigation }: any) {
+  // TicketDetailsScreen uses useRoute() internally, just render it
+  return <TicketDetailsScreen />;
+}
 
 function AppContent() {
   return (
@@ -120,6 +125,7 @@ function AppContent() {
           <Stack.Screen name="PortariaSearch" component={PortariaSearchWrapper} options={{ title: 'Pesquisa Portaria' }} />
           <Stack.Screen name="Printer" component={PrinterWrapper} options={{ title: 'Impressora' }} />
           <Stack.Screen name="Result" component={ResultWrapper} options={{ title: 'Resultado' }} />
+          <Stack.Screen name="TicketDetails" component={TicketDetailsWrapper} options={{ title: 'Detalhes do Ingresso' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>
