@@ -30,15 +30,14 @@ export default function PortariaSearchScreen({ onBack }: Props) {
     setErrorModalVisible(false);
 
     try {
-      const token = await AsyncStorage.getItem('bilheteria_token');
+      const token = await AsyncStorage.getItem('portaria_token');
       const base = getApiBaseUrl();
       const headers: any = {};
-      if (token) headers['X-Token-Bilheteria'] = token;
+      if (token) headers['X-Token-Portaria'] = token;
 
-      // Use backend route that returns the ingresso for the current event (same used by Bilheteria)
-      const res = await fetch(`${base}/api/bilheteria/ingresso-por-cpf?cpf=${encodeURIComponent(cpfSearch)}`, { headers });
+      // Use backend route that returns complete ingresso data for validation (same format as scan)
+      const res = await fetch(`${base}/api/portaria/ingresso-por-cpf?cpf=${encodeURIComponent(cpfSearch)}`, { headers });
       if (!res.ok) {
-        // fallback to older participant search so UI still works when endpoint missing
         console.log('[Portaria] ingresso-por-cpf returned', res.status);
         const text = await res.text();
         setErrorMessage(`Erro na busca: ${res.status} ${SafeLogger.sanitizeString(text)}`);
@@ -47,35 +46,15 @@ export default function PortariaSearchScreen({ onBack }: Props) {
       }
 
       const data = await res.json();
-      const ingresso = data.ingresso;
-      const participante = data.participante;
 
-      if (!ingresso) {
+      if (!data.ingresso) {
         setErrorMessage('Nenhum ingresso encontrado para este CPF no evento atual.');
         setErrorModalVisible(true);
         return;
       }
 
-      // Build image URL (same logic as BilheteriaSearchPrintScreen)
-      let imageUrl: string;
-      if (ingresso.qrcode_hash) {
-        imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(ingresso.qrcode_hash)}?evento_id=${encodeURIComponent(ingresso.evento_id)}`;
-      } else {
-        imageUrl = `${base}/api/evento/${encodeURIComponent(ingresso.evento_id)}/ingresso/${encodeURIComponent(ingresso._id)}/render.jpg`;
-      }
-
-      // Navigate to TicketDetails (same screen used by Bilheteria)
-      navigation.navigate('TicketDetails', {
-        ticket: {
-          id: ingresso._id,
-          name: participante?.nome || participante?.nome_completo || 'Ingresso',
-          details: participante?.cpf || '',
-          imageUrl,
-          token,
-          eventoId: ingresso.evento_id,
-          qrcode_hash: ingresso.qrcode_hash || null,
-        }
-      });
+      // Navigate to PortariaIngressoDetails (same screen used by scanner)
+      navigation.navigate('PortariaIngressoDetails', { ingressoData: data });
 
     } catch (e: any) {
       console.error('[Portaria] buscarPorCPF error', e);
