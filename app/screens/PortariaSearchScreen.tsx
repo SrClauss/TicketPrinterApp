@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Alert, StyleSheet, Modal, TextInput, ScrollView, Linking } from 'react-native';
+import { View, StyleSheet, Modal, TextInput } from 'react-native';
 import { Text, Button as PaperButton } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
@@ -14,8 +14,6 @@ type Props = {
 export default function PortariaSearchScreen({ onBack }: Props) {
   const [cpfSearch, setCpfSearch] = useState('');
   const [loading, setLoading] = useState(false);
-  const [participant, setParticipant] = useState<any | null>(null);
-  const [participantModalVisible, setParticipantModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
 
@@ -24,8 +22,6 @@ export default function PortariaSearchScreen({ onBack }: Props) {
   const buscarPorCPF = async () => {
     if (!cpfSearch || cpfSearch.trim().length === 0) { setErrorMessage('Informe um CPF válido'); setErrorModalVisible(true); return; }
     setLoading(true);
-    setParticipant(null);
-    setParticipantModalVisible(false);
     setErrorMessage(null);
     setErrorModalVisible(false);
 
@@ -65,37 +61,8 @@ export default function PortariaSearchScreen({ onBack }: Props) {
     }
   };
 
-  const openIngressoImage = async (ingressoId?: string, eventoId?: string, qrcode_hash?: string | null) => {
-    if (!ingressoId || !eventoId) { Alert.alert('Imagem indisponível', 'Não foi possível localizar ingresso ou evento para baixar a imagem.'); return; }
-    const base = getApiBaseUrl();
-    const token = await AsyncStorage.getItem('bilheteria_token');
-
-    let imageUrl: string;
-    if (qrcode_hash) {
-      imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(qrcode_hash)}?evento_id=${encodeURIComponent(eventoId)}`;
-    } else {
-      imageUrl = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
-    }
-
-    // Prefer opening TicketDetails (consistent with Bilheteria behavior)
-    navigation.navigate('TicketDetails', {
-      ticket: {
-        id: ingressoId,
-        name: 'Ingresso',
-        details: '',
-        imageUrl,
-        token,
-        eventoId,
-        qrcode_hash: qrcode_hash || null,
-      }
-    });
-  };
-
   const localStyles = StyleSheet.create({
     manualInput: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 8, borderRadius: 4 },
-    participantContainer: { padding: 16 },
-    fieldTitle: { fontWeight: '700', marginTop: 8 },
-    modalClose: { marginTop: 12 },
   });
 
   return (
@@ -145,19 +112,3 @@ export default function PortariaSearchScreen({ onBack }: Props) {
             <PaperButton mode="contained" onPress={() => setParticipantModalVisible(false)} style={localStyles.modalClose}>Fechar</PaperButton>
           </ScrollView>
         </View>
-      </Modal>
-
-      <Modal visible={errorModalVisible} animationType="fade" transparent={true}>
-        <View style={[styles.container, styles.screenPadding, {backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center'}]}>
-          <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8 }}>
-            <Text style={{ fontWeight: '700', fontSize: 18 }}>Erro</Text>
-            <Text style={{ marginTop: 8 }}>{errorMessage}</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-              <PaperButton mode="contained" onPress={()=>{ setErrorModalVisible(false); }}>Fechar</PaperButton>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-}
