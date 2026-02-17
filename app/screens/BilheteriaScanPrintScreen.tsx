@@ -45,24 +45,33 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     setProcessing(true);
     
     try {
+      console.log('[Scanner] Step 1: Getting token and base URL');
       const token = await AsyncStorage.getItem('bilheteria_token');
       const base = getApiBaseUrl();
       const headers: Record<string,string> = { 'Content-Type': 'application/json' };
       if (token) headers['X-Token-Bilheteria'] = token;
       
+      console.log('[Scanner] Step 2: Calling reimprimir API');
       const res = await fetch(`${base}/api/bilheteria/reimprimir/${encodeURIComponent(data)}`, { 
         method: 'POST', 
         headers 
       });
-      const text = await res.text();
       
-      if (!res.ok) { 
+      console.log('[Scanner] Step 3: Got response, status:', res.status);
+      const text = await res.text();
+      console.log('[Scanner] Step 4: Response text length:', text.length);
+      
+      if (!res.ok) {
+        console.log('[Scanner] Step 5a: Error response');
         Alert.alert('Erro', `Status ${res.status}\n${SafeLogger.sanitizeString(text)}`); 
         setProcessing(false);
         return; 
       }
       
+      console.log('[Scanner] Step 5b: Parsing JSON');
       const json = JSON.parse(text);
+      console.log('[Scanner] Step 6: Parsed JSON, getting layout');
+      
       const layout = json.layout_preenchido || json.ingresso?.layout_preenchido;
       let imageUrl: string | null = null;
       
@@ -77,23 +86,32 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         imageUrl = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
       }
       
+      console.log('[Scanner] Step 7: Image URL ready:', imageUrl ? 'YES' : 'NO');
+      
       if (imageUrl) {
+        console.log('[Scanner] Step 8: Getting printer settings');
         const ip = await AsyncStorage.getItem('printer_ip');
         const model = (await AsyncStorage.getItem('printer_model')) || undefined;
+        
+        console.log('[Scanner] Step 9: Calling BrotherPrint.printImage');
         await BrotherPrint.printImage({ 
           ipAddress: ip || '', 
           imageUri: imageUrl, 
           printerModel: model as any 
         });
+        
+        console.log('[Scanner] Step 10: Print command sent, showing alert');
         Alert.alert('Impressão', 'Comando de impressão enviado', [
           { text: 'OK', onPress: () => setProcessing(false) }
         ]);
       } else {
+        console.log('[Scanner] Step 8b: No image URL, showing alert');
         Alert.alert('OK', 'Reimpressão solicitada, mas não foi possível obter imagem para imprimir.', [
           { text: 'OK', onPress: () => setProcessing(false) }
         ]);
       }
-    } catch (e: unknown) { 
+    } catch (e: unknown) {
+      console.error('[Scanner] ERROR in handleCodeDetected:', e);
       Alert.alert('Erro', String(e), [
         { text: 'OK', onPress: () => setProcessing(false) }
       ]);
@@ -107,6 +125,8 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         const code = codes[0];
         if (code.value) {
           console.log('[Scanner] Code scanned:', code.type, code.value);
+          // Close camera immediately to avoid conflicts
+          setScanning(false);
           handleCodeDetected(code.value, code.type || 'qr');
         }
       }
