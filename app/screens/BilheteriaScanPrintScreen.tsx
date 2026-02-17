@@ -114,7 +114,8 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
       const eventoId = json.ingresso?.evento_id || json.evento_id || undefined;
       
       if (!imageUrl && ingressoId && eventoId) {
-        imageUrl = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
+        // Use bilheteria render endpoint that accepts qrcode_hash directly
+        imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(ingressoId)}?evento_id=${encodeURIComponent(eventoId)}`;
       }
       
       console.log('[Scanner] Step 7: Image URL ready:', imageUrl ? 'YES' : 'NO');
