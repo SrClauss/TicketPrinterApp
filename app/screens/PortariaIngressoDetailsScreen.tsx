@@ -160,8 +160,9 @@ export default function PortariaIngressoDetailsScreen() {
           mode="contained" 
           onPress={() => navigation.goBack()}
           style={{ marginBottom: 8 }}
+          icon="qrcode-scan"
         >
-          Voltar para Scanner
+          Ler Próximo Ingresso
         </PaperButton>
         
         <PaperButton 
@@ -171,7 +172,7 @@ export default function PortariaIngressoDetailsScreen() {
             navigation.goBack();
           }}
         >
-          Voltar para Portaria
+          Voltar para Menu Principal
         </PaperButton>
       </View>
     </ScrollView>

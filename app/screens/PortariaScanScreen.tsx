@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 type Props = { onBack: () => void };
 
@@ -14,11 +14,26 @@ export default function PortariaScanScreen({ onBack }: Props) {
   const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [autoOpenCamera, setAutoOpenCamera] = useState(false);
   const lastScanRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const navigation = useNavigation();
+
+  // Automatically reopen camera when returning from details screen
+  useFocusEffect(
+    React.useCallback(() => {
+      if (autoOpenCamera && !processing) {
+        console.log('[PortariaScan] Reopening camera on return');
+        setScanning(true);
+      }
+      return () => {
+        // Cleanup on blur
+        setScanning(false);
+      };
+    }, [autoOpenCamera, processing])
+  );
 
   const handleCodeDetected = async (data: string, type: string) => {
     if (!data || processing) {
@@ -87,6 +102,9 @@ export default function PortariaScanScreen({ onBack }: Props) {
       const json = JSON.parse(text);
       console.log('[PortariaScan] Success, navigating to details');
 
+      // Mark that camera should reopen when returning
+      setAutoOpenCamera(true);
+
       // Navigate to Portaria-specific details screen
       (navigation as any).navigate('PortariaIngressoDetails', {
         ingresso: json
@@ -130,6 +148,7 @@ export default function PortariaScanScreen({ onBack }: Props) {
       }
     }
     console.log('[PortariaScan] Camera permission granted, opening camera');
+    setAutoOpenCamera(true);
     setScanning(true);
   };
 
