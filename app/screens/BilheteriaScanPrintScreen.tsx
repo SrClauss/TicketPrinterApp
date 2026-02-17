@@ -109,7 +109,8 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         imageUrl = layout;
       }
       
-      const ingressoId = json.ingresso?._id || json.ingresso?.id || data;
+      // Always use the scanned QR code hash as ingresso_id (don't use internal _id)
+      const ingressoId = data; // The scanned QR code is the qrcode_hash
       const eventoId = json.ingresso?.evento_id || json.evento_id || undefined;
       
       if (!imageUrl && ingressoId && eventoId) {
