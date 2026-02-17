@@ -161,9 +161,27 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
             style={{ flex: 1 }} 
             captureAudio={false} 
             onBarCodeRead={handleBarCodeRead}
-            barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
+            barCodeTypes={[
+              RNCamera.Constants.BarCodeType.qr,
+              RNCamera.Constants.BarCodeType.aztec,
+              RNCamera.Constants.BarCodeType.code128,
+              RNCamera.Constants.BarCodeType.code39,
+              RNCamera.Constants.BarCodeType.ean13,
+              RNCamera.Constants.BarCodeType.pdf417,
+              RNCamera.Constants.BarCodeType.datamatrix,
+            ]}
             autoFocus={RNCamera.Constants.AutoFocus.on}
             flashMode={RNCamera.Constants.FlashMode.auto}
+            onCameraReady={() => {
+              console.log('[Scanner] ✅ Camera is READY to scan');
+              console.log('[Scanner] Barcode types enabled:', [
+                'qr', 'aztec', 'code128', 'code39', 'ean13', 'pdf417', 'datamatrix'
+              ]);
+            }}
+            onMountError={(error) => {
+              console.error('[Scanner] ❌ Camera mount ERROR:', error);
+              Alert.alert('Erro de câmera', String(error));
+            }}
             androidCameraPermissionOptions={{
               title: 'Permissão para usar câmera',
               message: 'Precisamos da sua permissão para usar a câmera',
