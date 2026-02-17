@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Base: cleartext proibido por padrão -->
+  <base-config cleartextTrafficPermitted="false" />
+
+  <!-- Permitir cleartext apenas para o servidor de API usado em `env.ts` -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">129.121.32.101</domain>
+  </domain-config>
+</network-security-config>

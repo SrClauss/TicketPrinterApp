@@ -8,6 +8,7 @@ import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
 import BrotherPrint from '../../lib/brother';
 import RNFS from 'react-native-fs';
+import { useNavigation } from '@react-navigation/native';
 
 type Props = { onBack: () => void };
 
@@ -20,17 +21,19 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     printerIp: string;
     printerModel?: string;
   } | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [ticketData, setTicketData] = useState<{ id: string; name: string; details: string } | null>(null);
   const lastScanRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
+  const navigation = useNavigation();
 
   const handleCodeDetected = async (data: string, type: string) => {
     if (!data || processing) {
       return;
     }
-    
-    // Debounce: ignore scans of same code within 3 seconds
+
     const now = Date.now();
     if (data === lastScanRef.current && (now - lastScanTimeRef.current) < 3000) {
       console.log('[Scanner] Ignoring duplicate scan');
@@ -41,77 +44,45 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
 
     console.log('[Scanner] ✅ QR Code detected!', { data, type, length: data.length });
     setProcessing(true);
-    setScanning(false); // Close camera immediately
-    
-    try {
-      Vibration.vibrate(200);
-    } catch (e) {
-      console.error('[Scanner] Vibration error:', e);
-    }
+    setScanning(false);
 
     try {
-      console.log('[Scanner] Step 0: Waiting 100ms for camera to close');
-      await new Promise(resolve => setTimeout(resolve, 100));
-      console.log('[Scanner] Step 0b: Delay complete');
-      return;
-    }
-    
-    lastScanRef.current = data;
-    lastScanTimeRef.current = now;
-    
-    console.log('[Scanner] ✅ QR Code detected!', { data, type, length: data.length });
-    
-    // Vibrate to give user feedback
-    try {
       Vibration.vibrate(200);
-    } catch (e) {
-      console.log('[Scanner] Vibration not available');
-    }
-    
-    setProcessing(true);
-    
-    // Small delay to ensure camera is fully closed
-    console.log('[Scanner] Step 0: Waiting 100ms for camera to close');
-    await new Promise(resolve => setTimeout(resolve, 100));
-    console.log('[Scanner] Step 0b: Delay complete');
-    
-    try {
+      console.log('[Scanner] Step 0: Waiting 100ms for camera to close');
+      await new Promise<void>(resolve => setTimeout(resolve, 100));
+      console.log('[Scanner] Step 0b: Delay complete');
+
+      // --- Call backend to get ticket/image info ---
       console.log('[Scanner] Step 1: Getting token and base URL');
-      console.log('[Scanner] Step 1a: Calling AsyncStorage.getItem');
-      
       let token: string | null = null;
       try {
         token = await AsyncStorage.getItem('bilheteria_token');
         console.log('[Scanner] Step 1b: Got token:', token ? 'YES' : 'NO');
       } catch (storageError) {
         console.error('[Scanner] AsyncStorage error:', storageError);
-        throw new Error('Erro ao acessar storage: ' + String(storageError));
       }
-      
+
       console.log('[Scanner] Step 1c: Calling getApiBaseUrl');
       const base = getApiBaseUrl();
       console.log('[Scanner] Step 1d: Got base URL:', base);
-      
-      console.log('[Scanner] Step 1e: Building headers');
-      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['X-Token-Bilheteria'] = token;
-      console.log('[Scanner] Step 1f: Headers ready');
-      
+
       console.log('[Scanner] Step 2: Calling reimprimir API');
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-      
-      const res = await fetch(`${base}/api/bilheteria/reimprimir/${encodeURIComponent(data)}`, { 
-        method: 'POST', 
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`${base}/api/bilheteria/reimprimir/${encodeURIComponent(data)}`, {
+        method: 'POST',
         headers,
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      
+
       console.log('[Scanner] Step 3: Got response, status:', res.status);
       const text = await res.text();
       console.log('[Scanner] Step 4: Response text length:', text.length);
-      
+
       if (!res.ok) {
         console.log('[Scanner] Step 5a: Error response');
         try {
@@ -119,88 +90,57 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         } catch (alertError) {
           console.error('[Scanner] Alert error:', alertError);
         }
-        setProcessing(false);
-        return; 
+        return;
       }
-      
+
       console.log('[Scanner] Step 5b: Parsing JSON');
       const json = JSON.parse(text);
       console.log('[Scanner] Step 6: Parsed JSON, getting layout');
-      
+
       const layout = json.layout_preenchido || json.ingresso?.layout_preenchido;
       let imageUrl: string | null = null;
-      
+
       if (layout && typeof layout === 'string' && (layout.startsWith('http') || layout.startsWith('data:'))) {
         imageUrl = layout;
       }
-      
-      // Always use the scanned QR code hash as ingresso_id (don't use internal _id)
-      const ingressoId = data; // The scanned QR code is the qrcode_hash
+
+      const ingressoId = data; // use qrcode hash
       const eventoId = json.ingresso?.evento_id || json.evento_id || undefined;
-      
+
       if (!imageUrl && ingressoId && eventoId) {
-        // Use bilheteria render endpoint that accepts qrcode_hash directly
         imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(ingressoId)}?evento_id=${encodeURIComponent(eventoId)}`;
       }
-      
+
       console.log('[Scanner] Step 7: Image URL ready:', imageUrl ? 'YES' : 'NO');
-      
+
       if (imageUrl) {
-        console.log('[Scanner] Step 8: Downloading image from server');
-        const localPath = `${RNFS.CachesDirectoryPath}/ticket_${ingressoId}.jpg`;
-        console.log('[Scanner] Step 8a: Local path:', localPath);
-        
-        const downloadResult = await RNFS.downloadFile({
-          fromUrl: imageUrl,
-          toFile: localPath,
-          headers: {
-            'X-Token-Bilheteria': token || '',
-          },
-        }).promise;
-        
-        console.log('[Scanner] Step 8b: Download complete, status:', downloadResult.statusCode);
-        
-        if (downloadResult.statusCode !== 200) {
-          throw new Error(`Download failed with status ${downloadResult.statusCode}`);
-        }
-        
-        console.log('[Scanner] Step 9: Getting printer settings');
-        const ip = await AsyncStorage.getItem('printer_ip');
-        const model = (await AsyncStorage.getItem('printer_model')) || undefined;
-        
-        console.log('[Scanner] Step 9a: Printer IP:', ip || 'NOT SET');
-        console.log('[Scanner] Step 9b: Printer model:', model || 'default');
-        
-        if (!ip) {
-          throw new Error('IP da impressora não configurado. Vá em Configurações para configurar a impressora.');
-        }
-        
-        console.log('[Scanner] Step 10: Showing preview modal');
-        setPreviewData({
-          imagePath: localPath,
-          printerIp: ip,
-          printerModel: model,
+        // Navigate to TicketDetails and pass token so Image can use headers if needed
+        console.log('[Scanner] Step 10: Navigating to TicketDetails with image URL');
+        (navigation as any).navigate('TicketDetails', {
+          ticket: {
+            id: ingressoId,
+            name: json.ingresso?.nome || 'Ingresso',
+            details: json.ingresso?.detalhes || '',
+            imageUrl,
+            token,            eventoId: eventoId || null,
+            qrcode_hash: ingressoId,          },
         });
-        setShowPreview(true);
-        setProcessing(false);
       } else {
         console.log('[Scanner] Step 8b: No image URL, showing alert');
         Alert.alert('OK', 'Reimpressão solicitada, mas não foi possível obter imagem para imprimir.', [
           { text: 'OK', onPress: () => setProcessing(false) }
         ]);
       }
-    } catch (e: unknown) {
-      console.error('[Scanner] ERROR in handleCodeDetected:', e);
-      console.error('[Scanner] Error type:', typeof e);
-      console.error('[Scanner] Error constructor:', e?.constructor?.name);
+    } catch (error) {
+      console.error('[Scanner] Error during ticket processing:', error);
       try {
-        Alert.alert('Erro', String(e), [
-          { text: 'OK', onPress: () => setProcessing(false) }
-        ]);
+        Alert.alert('Erro', String(error), [ { text: 'OK', onPress: () => setProcessing(false) } ]);
       } catch (alertError) {
         console.error('[Scanner] Alert error:', alertError);
         setProcessing(false);
       }
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -279,19 +219,6 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         Abrir câmera
       </PaperButton>
 
-      {__DEV__ && (
-        <PaperButton 
-          mode="outlined" 
-          onPress={() => {
-            console.log('[Scanner] Testing with sample QR code');
-            handleCodeDetected('test-qr-code-123', 'qr');
-          }} 
-          style={{ marginTop: 8 }}
-        >
-          🧪 Testar scanner
-        </PaperButton>
-      )}
-
       <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {device != null && (
@@ -365,6 +292,24 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
               </PaperButton>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Detalhes do Ingresso</Text>
+          {ticketData && (
+            <View>
+              <Text>ID: {ticketData.id}</Text>
+              <Text>Nome: {ticketData.name}</Text>
+              <Text>Detalhes: {ticketData.details}</Text>
+            </View>
+          )}
+          <PaperButton onPress={() => setIsModalVisible(false)}>Fechar</PaperButton>
         </View>
       </Modal>
 

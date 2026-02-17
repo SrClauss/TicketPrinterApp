@@ -61,7 +61,7 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
       <View style={{ marginTop: 16 }}>
         <PaperButton 
           mode="contained" 
-          onPress={() => navigation.navigate('PortariaScan')}
+          onPress={() => (navigation as any).navigate('PortariaScan')}
           style={{ marginBottom: 12 }}
         >
           Scan QR Code

@@ -21,7 +21,7 @@ export default function PortariaScanScreen({ onBack }: Props) {
   const device = useCameraDevice('back');
   const navigation = useNavigation();
 
-  const route = useRoute();
+  const route = useRoute() as any; // params may include autoOpenCamera (typed as any)
 
   // Automatically reopen camera when returning from details screen or when route param requests it
   useFocusEffect(

@@ -152,7 +152,7 @@ export default function BilheteriaListScreen({ onBack }: Props) {
         value={search}
         onChangeText={setSearch}
         style={{ marginBottom: 8 }}
-        right={<PaperTextInput.Icon name={search ? 'close' : 'magnify'} onPress={() => { if (search) { setSearch(''); loadPage(1); } }} />}
+        right={<PaperTextInput.Icon icon={search ? 'close' : 'magnify'} onPress={() => { if (search) { setSearch(''); loadPage(1); } }} />}
       />
       <PaperButton mode="contained" onPress={() => loadPage(1)} style={{ marginBottom: 12 }}>Buscar</PaperButton>
       {loading && <PaperActivityIndicator style={styles.loader} />}

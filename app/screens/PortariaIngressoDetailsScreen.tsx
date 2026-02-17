@@ -162,7 +162,7 @@ export default function PortariaIngressoDetailsScreen() {
           mode="contained" 
           onPress={() => {
             // Always go to the camera screen and request it to auto-open
-            navigation.replace('PortariaScan', { autoOpenCamera: true });
+            (navigation as any).replace('PortariaScan', { autoOpenCamera: true });
           }}
           style={{ marginBottom: 8 }}
           icon="qrcode-scan"

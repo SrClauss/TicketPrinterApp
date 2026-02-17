@@ -2,5 +2,17 @@ pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'TicketPrinter'
+
+// Add toolchain download repository to avoid Gradle 10 deprecation for auto-provisioned JDKs
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        // Required by Gradle toolchain auto-provisioning in some environments
+        maven { url = uri('https://download.java.net/more') }
+    }
+}
+
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

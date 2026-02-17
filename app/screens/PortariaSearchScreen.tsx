@@ -50,7 +50,7 @@ export default function PortariaSearchScreen({ onBack }: Props) {
       }
 
       // Navigate to PortariaIngressoDetails (same screen used by scanner)
-      navigation.navigate('PortariaIngressoDetails', { ingresso: data });
+      (navigation as any).navigate('PortariaIngressoDetails', { ingresso: data });
 
     } catch (e: any) {
       console.error('[Portaria] buscarPorCPF error', e);

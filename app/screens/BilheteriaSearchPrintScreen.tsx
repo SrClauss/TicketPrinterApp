@@ -62,7 +62,7 @@ export default function BilheteriaSearchPrintScreen({ onBack }: Props) {
       console.log('[Search] Abrindo TicketDetails com imageUrl:', imageUrl);
       
       // Navigate to TicketDetails
-      navigation.navigate('TicketDetails', {
+      (navigation as any).navigate('TicketDetails', {
         ticket: {
           id: ingresso._id,
           name: participante.nome || 'Ingresso',

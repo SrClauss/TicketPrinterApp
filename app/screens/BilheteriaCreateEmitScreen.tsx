@@ -11,7 +11,7 @@ import BrotherPrint, { PrinterModel } from '../../lib/brother';
 
 
 
-export default function BilheteriaCreateEmitScreen() {
+export default function BilheteriaCreateEmitScreen({ onBack }: { onBack?: () => void } = {}) {
 
 
 
