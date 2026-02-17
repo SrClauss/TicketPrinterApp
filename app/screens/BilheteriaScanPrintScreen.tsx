@@ -44,11 +44,23 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     
     setProcessing(true);
     
+    // Small delay to ensure camera is fully closed
+    console.log('[Scanner] Step 0: Waiting 100ms for camera to close');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('[Scanner] Step 0b: Delay complete');
+    
     try {
       console.log('[Scanner] Step 1: Getting token and base URL');
       console.log('[Scanner] Step 1a: Calling AsyncStorage.getItem');
-      const token = await AsyncStorage.getItem('bilheteria_token');
-      console.log('[Scanner] Step 1b: Got token:', token ? 'YES' : 'NO');
+      
+      let token: string | null = null;
+      try {
+        token = await AsyncStorage.getItem('bilheteria_token');
+        console.log('[Scanner] Step 1b: Got token:', token ? 'YES' : 'NO');
+      } catch (storageError) {
+        console.error('[Scanner] AsyncStorage error:', storageError);
+        throw new Error('Erro ao acessar storage: ' + String(storageError));
+      }
       
       console.log('[Scanner] Step 1c: Calling getApiBaseUrl');
       const base = getApiBaseUrl();
