@@ -58,9 +58,20 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
         )
       )}
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        <PaperButton mode="contained" onPress={() => { if (typeof onOpenSearch === 'function') onOpenSearch(); else Alert.alert('Navegação', 'Funcionalidade de pesquisa não disponível.'); }}>Pesquisar por CPF</PaperButton>
-        <PaperButton mode="contained" onPress={() => navigation.navigate('PortariaScan')}>Scan QR</PaperButton>
+      <View style={{ marginTop: 16 }}>
+        <PaperButton 
+          mode="contained" 
+          onPress={() => navigation.navigate('PortariaScan')}
+          style={{ marginBottom: 12 }}
+        >
+          Scan QR Code
+        </PaperButton>
+        <PaperButton 
+          mode="contained" 
+          onPress={() => { if (typeof onOpenSearch === 'function') onOpenSearch(); else Alert.alert('Navegação', 'Funcionalidade de pesquisa não disponível.'); }}
+        >
+          Pesquisar por CPF
+        </PaperButton>
       </View>
 
       <PaperButton mode="text" onPress={onBack} style={localStyles.backButton}>Sair</PaperButton>

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text, Button as PaperButton, Card } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles as globalStyles } from '../../App';
 
 type IngressoDetailsProps = {
@@ -78,8 +79,9 @@ export default function PortariaIngressoDetailsScreen() {
   const statusText = valido ? 'VÁLIDO ✓' : 'INVÁLIDO ✗';
 
   return (
-    <ScrollView style={localStyles.container}>
-      <Text style={globalStyles.title}>Validação de Ingresso</Text>
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+      <ScrollView style={localStyles.container}>
+        <Text style={globalStyles.title}>Validação de Ingresso</Text>
 
       {/* Status Card */}
       <Card style={[localStyles.card, { backgroundColor: valido ? '#e8f5e9' : '#ffebee' }]}>
@@ -175,6 +177,7 @@ export default function PortariaIngressoDetailsScreen() {
           Voltar para Menu Principal
         </PaperButton>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
