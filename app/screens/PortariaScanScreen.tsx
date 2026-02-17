@@ -71,13 +71,13 @@ export default function PortariaScanScreen({ onBack }: Props) {
       }
 
       const base = getApiBaseUrl();
-      console.log('[PortariaScan] Calling portaria API:', `${base}/api/portaria/ingresso/${data}`);
+      console.log('[PortariaScan] Calling portaria API:', `${base}/api/portaria/ingresso-completo/${data}`);
 
       const headers: Record<string, string> = { 'X-Token-Portaria': token };
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(`${base}/api/portaria/ingresso/${encodeURIComponent(data)}`, {
+      const res = await fetch(`${base}/api/portaria/ingresso-completo/${encodeURIComponent(data)}`, {
         method: 'GET',
         headers,
         signal: controller.signal,
