@@ -143,9 +143,16 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         const ip = await AsyncStorage.getItem('printer_ip');
         const model = (await AsyncStorage.getItem('printer_model')) || undefined;
         
+        console.log('[Scanner] Step 9a: Printer IP:', ip || 'NOT SET');
+        console.log('[Scanner] Step 9b: Printer model:', model || 'default');
+        
+        if (!ip) {
+          throw new Error('IP da impressora não configurado. Vá em Configurações para configurar a impressora.');
+        }
+        
         console.log('[Scanner] Step 10: Calling BrotherPrint.printImage with local file');
         await BrotherPrint.printImage({ 
-          ipAddress: ip || '', 
+          ipAddress: ip, 
           imageUri: `file://${localPath}`, 
           printerModel: model as any 
         });
