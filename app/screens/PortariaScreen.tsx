@@ -1,11 +1,11 @@
 import React, {useEffect, useState, useRef} from 'react';
-import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Platform, PermissionsAndroid } from 'react-native';
+import { View, Alert, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { Text, ActivityIndicator as PaperActivityIndicator, Button as PaperButton } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
-import { RNCamera } from 'react-native-camera';
+import { Camera, useCameraDevice, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 
 type Props = {
   onBack: () => void;
@@ -22,7 +22,9 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
   const [manualCode, setManualCode] = useState('');
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const cameraRef = useRef<RNCamera | null>(null);
+  const processingRef = useRef(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
 
   const loadInfo = async () => {
     setLoading(true);
@@ -47,11 +49,16 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
   useEffect(() => { loadInfo(); }, []);
 
   const fetchIngresso = async (qrcode_hash: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    
     setLoading(true);
     setParticipant(null);
     setParticipantModalVisible(false);
     setErrorMessage(null);
     setErrorModalVisible(false);
+    setScanning(false);
+    
     try {
       const token = await AsyncStorage.getItem('portaria_token');
       if (!token) { setErrorMessage('Token de portaria não encontrado'); setErrorModalVisible(true); return; }
@@ -78,46 +85,33 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
       setErrorModalVisible(true);
     } finally {
       setLoading(false);
+      processingRef.current = false;
     }
   };
 
-
-
-
-
-  const handleBarCodeRead = ({ data }: { data: string }) => {
-    if (!data) return;
-    // prevent multiple calls
-    setScanning(false);
-    fetchIngresso(data);
-  };
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr', 'ean-13', 'code-128'],
+    onCodeScanned: (codes) => {
+      if (codes.length > 0 && !processingRef.current) {
+        const code = codes[0];
+        if (code.value) {
+          console.log('[Portaria] QR Code scanned:', code.value);
+          fetchIngresso(code.value);
+        }
+      }
+    },
+  });
 
   const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Permissão de Câmera',
-            message: 'Este aplicativo precisa acessar sua câmera para escanear QR codes.',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          setScanning(true);
-        } else {
-          Alert.alert('Permissão negada', 'Não é possível usar a câmera sem permissão.');
-        }
-      } catch (err) {
-        console.warn(err);
-        Alert.alert('Erro', 'Falha ao solicitar permissão de câmera.');
+    if (!hasPermission) {
+      const granted = await requestPermission();
+      if (!granted) {
+        Alert.alert('Permissão negada', 'Não é possível usar a câmera sem permissão.');
+        return;
       }
-    } else {
-      // iOS: permissões são solicitadas automaticamente
-      setScanning(true);
     }
+    console.log('[Portaria] Camera permission granted, opening camera');
+    setScanning(true);
   };
 
   // local styles
@@ -125,11 +119,10 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
     itemTitle: { fontWeight: '700', marginBottom: 8 },
     backButton: { marginTop: 18 },
     scannerModal: { flex: 1, backgroundColor: '#000' },
-    cameraPreview: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
     cameraButton: { position: 'absolute', bottom: 40, alignSelf: 'center' },
     participantContainer: { padding: 16 },
     fieldTitle: { fontWeight: '700', marginTop: 8 },
-    manualInput: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 8, borderRadius: 4 },
+    manualInput: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginTop: 8, borderRadius: 4, backgroundColor: '#fff' },
     modalClose: { marginTop: 12 },
   });
 
@@ -156,15 +149,16 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
 
       <Modal visible={scanning} animationType="slide">
         <View style={localStyles.scannerModal}>
-          <RNCamera
-            ref={ref => { cameraRef.current = ref; }}
-            style={localStyles.cameraPreview}
-            captureAudio={false}
-            onBarCodeRead={handleBarCodeRead}
-            barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
-          />
+          {device != null && (
+            <Camera 
+              style={StyleSheet.absoluteFill} 
+              device={device}
+              isActive={scanning}
+              codeScanner={codeScanner}
+            />
+          )}
 
-          <View style={{ padding: 12 }}>
+          <View style={{ padding: 12, position: 'absolute', bottom: 0, width: '100%', backgroundColor: 'rgba(0,0,0,0.7)' }}>
             <Text style={{ color: '#fff', textAlign: 'center' }}>Aponte a câmera para o QR code</Text>
             <TextInput
               placeholder="Ou cole o código aqui"
