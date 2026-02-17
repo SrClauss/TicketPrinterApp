@@ -75,9 +75,14 @@ export default function PortariaSearchScreen({ onBack }: Props) {
         value={cpfSearch}
         onChangeText={setCpfSearch}
       />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        <PaperButton mode="contained" onPress={buscarPorCPF}>Buscar por CPF</PaperButton>
-        <PaperButton mode="outlined" onPress={() => setCpfSearch('')}>Limpar</PaperButton>
+
+      <View style={{ flexDirection: 'column', marginTop: 8 }}>
+        <PaperButton mode="contained" onPress={buscarPorCPF} style={{ width: '100%', marginBottom: 12 }}>
+          Buscar por CPF
+        </PaperButton>
+        <PaperButton mode="outlined" onPress={() => setCpfSearch('')} style={{ width: '100%' }}>
+          Limpar
+        </PaperButton>
       </View>
 
       <PaperButton mode="text" onPress={onBack} style={{ marginTop: 18 }}>Voltar</PaperButton>
