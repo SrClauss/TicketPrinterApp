@@ -7,6 +7,7 @@ import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
 import BrotherPrint from '../../lib/brother';
+import RNFS from 'react-native-fs';
 
 type Props = { onBack: () => void };
 
@@ -118,18 +119,33 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
       console.log('[Scanner] Step 7: Image URL ready:', imageUrl ? 'YES' : 'NO');
       
       if (imageUrl) {
-        console.log('[Scanner] Step 8: Getting printer settings');
+        console.log('[Scanner] Step 8: Downloading image from server');
+        const localPath = `${RNFS.CachesDirectoryPath}/ticket_${ingressoId}.jpg`;
+        console.log('[Scanner] Step 8a: Local path:', localPath);
+        
+        const downloadResult = await RNFS.downloadFile({
+          fromUrl: imageUrl,
+          toFile: localPath,
+        }).promise;
+        
+        console.log('[Scanner] Step 8b: Download complete, status:', downloadResult.statusCode);
+        
+        if (downloadResult.statusCode !== 200) {
+          throw new Error(`Download failed with status ${downloadResult.statusCode}`);
+        }
+        
+        console.log('[Scanner] Step 9: Getting printer settings');
         const ip = await AsyncStorage.getItem('printer_ip');
         const model = (await AsyncStorage.getItem('printer_model')) || undefined;
         
-        console.log('[Scanner] Step 9: Calling BrotherPrint.printImage');
+        console.log('[Scanner] Step 10: Calling BrotherPrint.printImage with local file');
         await BrotherPrint.printImage({ 
           ipAddress: ip || '', 
-          imageUri: imageUrl, 
+          imageUri: `file://${localPath}`, 
           printerModel: model as any 
         });
         
-        console.log('[Scanner] Step 10: Print command sent, showing alert');
+        console.log('[Scanner] Step 11: Print command sent, showing alert');
         Alert.alert('Impressão', 'Comando de impressão enviado', [
           { text: 'OK', onPress: () => setProcessing(false) }
         ]);
