@@ -128,6 +128,9 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         const downloadResult = await RNFS.downloadFile({
           fromUrl: imageUrl,
           toFile: localPath,
+          headers: {
+            'X-Token-Bilheteria': token || '',
+          },
         }).promise;
         
         console.log('[Scanner] Step 8b: Download complete, status:', downloadResult.statusCode);
