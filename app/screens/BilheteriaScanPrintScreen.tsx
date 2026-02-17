@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Alert, Modal, StyleSheet, Vibration } from 'react-native';
+import { View, Alert, Modal, StyleSheet, Vibration, Image, ScrollView } from 'react-native';
 import { Text, Button as PaperButton } from 'react-native-paper';
 import { Camera, useCameraDevice, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +14,12 @@ type Props = { onBack: () => void };
 export default function BilheteriaScanPrintScreen({ onBack }: Props) {
   const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    imagePath: string;
+    printerIp: string;
+    printerModel?: string;
+  } | null>(null);
   const lastScanRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -28,6 +34,25 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     const now = Date.now();
     if (data === lastScanRef.current && (now - lastScanTimeRef.current) < 3000) {
       console.log('[Scanner] Ignoring duplicate scan');
+      return;
+    }
+    lastScanRef.current = data;
+    lastScanTimeRef.current = now;
+
+    console.log('[Scanner] ✅ QR Code detected!', { data, type, length: data.length });
+    setProcessing(true);
+    setScanning(false); // Close camera immediately
+    
+    try {
+      Vibration.vibrate(200);
+    } catch (e) {
+      console.error('[Scanner] Vibration error:', e);
+    }
+
+    try {
+      console.log('[Scanner] Step 0: Waiting 100ms for camera to close');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('[Scanner] Step 0b: Delay complete');
       return;
     }
     
@@ -150,17 +175,14 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
           throw new Error('IP da impressora não configurado. Vá em Configurações para configurar a impressora.');
         }
         
-        console.log('[Scanner] Step 10: Calling BrotherPrint.printImage with local file');
-        await BrotherPrint.printImage({ 
-          ipAddress: ip, 
-          imageUri: `file://${localPath}`, 
-          printerModel: model as any 
+        console.log('[Scanner] Step 10: Showing preview modal');
+        setPreviewData({
+          imagePath: localPath,
+          printerIp: ip,
+          printerModel: model,
         });
-        
-        console.log('[Scanner] Step 11: Print command sent, showing alert');
-        Alert.alert('Impressão', 'Comando de impressão enviado', [
-          { text: 'OK', onPress: () => setProcessing(false) }
-        ]);
+        setShowPreview(true);
+        setProcessing(false);
       } else {
         console.log('[Scanner] Step 8b: No image URL, showing alert');
         Alert.alert('OK', 'Reimpressão solicitada, mas não foi possível obter imagem para imprimir.', [
@@ -180,6 +202,44 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
         setProcessing(false);
       }
     }
+  };
+
+  const handlePrint = async () => {
+    if (!previewData) return;
+    
+    setShowPreview(false);
+    setProcessing(true);
+    
+    try {
+      console.log('[Print] Calling BrotherPrint.printImage');
+      await BrotherPrint.printImage({ 
+        ipAddress: previewData.printerIp, 
+        imageUri: `file://${previewData.imagePath}`, 
+        printerModel: previewData.printerModel as any 
+      });
+      
+      console.log('[Print] Print command sent successfully');
+      Alert.alert('Sucesso', 'Comando de impressão enviado com sucesso!', [
+        { text: 'OK', onPress: () => {
+          setProcessing(false);
+          setPreviewData(null);
+        }}
+      ]);
+    } catch (e: unknown) {
+      console.error('[Print] ERROR:', e);
+      Alert.alert('Erro ao imprimir', String(e), [
+        { text: 'OK', onPress: () => {
+          setProcessing(false);
+          setPreviewData(null);
+        }}
+      ]);
+    }
+  };
+
+  const handleCancelPrint = () => {
+    setShowPreview(false);
+    setPreviewData(null);
+    setProcessing(false);
   };
 
   const codeScanner = useCodeScanner({
@@ -266,6 +326,45 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
           >
             Fechar câmera
           </PaperButton>
+        </View>
+      </Modal>
+
+      <Modal visible={showPreview} animationType="slide" transparent onRequestClose={handleCancelPrint}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 10, padding: 20, width: '100%', maxWidth: 500 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>
+              Confirmar Impressão
+            </Text>
+            
+            <ScrollView style={{ maxHeight: 500 }}>
+              {previewData?.imagePath && (
+                <Image 
+                  source={{ uri: `file://${previewData.imagePath}` }} 
+                  style={{ width: '100%', height: 400, marginBottom: 15 }} 
+                  resizeMode="contain"
+                />
+              )}
+            </ScrollView>
+            
+            <View style={{ marginTop: 10, gap: 10 }}>
+              <PaperButton 
+                mode="contained" 
+                onPress={handlePrint}
+                disabled={processing}
+                style={{ backgroundColor: '#10b981' }}
+              >
+                {processing ? 'Imprimindo...' : 'Confirmar e Imprimir'}
+              </PaperButton>
+              
+              <PaperButton 
+                mode="outlined" 
+                onPress={handleCancelPrint}
+                disabled={processing}
+              >
+                Cancelar
+              </PaperButton>
+            </View>
+          </View>
         </View>
       </Modal>
 
