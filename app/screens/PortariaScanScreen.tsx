@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 
 type Props = { onBack: () => void };
 
@@ -21,9 +21,20 @@ export default function PortariaScanScreen({ onBack }: Props) {
   const device = useCameraDevice('back');
   const navigation = useNavigation();
 
-  // Automatically reopen camera when returning from details screen
+  const route = useRoute();
+
+  // Automatically reopen camera when returning from details screen or when route param requests it
   useFocusEffect(
     React.useCallback(() => {
+      const paramAuto = (route.params as any)?.autoOpenCamera;
+      if (paramAuto) {
+        console.log('[PortariaScan] Reopening camera due to route param');
+        setAutoOpenCamera(true);
+        setScanning(true);
+        try { (navigation as any).setParams({ autoOpenCamera: false }); } catch (e) { /* ignore */ }
+        return () => setScanning(false);
+      }
+
       if (autoOpenCamera && !processing) {
         console.log('[PortariaScan] Reopening camera on return');
         setScanning(true);
@@ -32,7 +43,7 @@ export default function PortariaScanScreen({ onBack }: Props) {
         // Cleanup on blur
         setScanning(false);
       };
-    }, [autoOpenCamera, processing])
+    }, [route.params?.autoOpenCamera, autoOpenCamera, processing])
   );
 
   const handleCodeDetected = async (data: string, type: string) => {

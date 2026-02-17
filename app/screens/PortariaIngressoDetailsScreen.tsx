@@ -160,7 +160,10 @@ export default function PortariaIngressoDetailsScreen() {
       <View style={localStyles.buttonContainer}>
         <PaperButton 
           mode="contained" 
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            // Always go to the camera screen and request it to auto-open
+            navigation.replace('PortariaScan', { autoOpenCamera: true });
+          }}
           style={{ marginBottom: 8 }}
           icon="qrcode-scan"
         >

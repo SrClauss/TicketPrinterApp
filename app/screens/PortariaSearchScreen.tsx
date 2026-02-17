@@ -50,7 +50,7 @@ export default function PortariaSearchScreen({ onBack }: Props) {
       }
 
       // Navigate to PortariaIngressoDetails (same screen used by scanner)
-      navigation.navigate('PortariaIngressoDetails', { ingressoData: data });
+      navigation.navigate('PortariaIngressoDetails', { ingresso: data });
 
     } catch (e: any) {
       console.error('[Portaria] buscarPorCPF error', e);
@@ -82,33 +82,17 @@ export default function PortariaSearchScreen({ onBack }: Props) {
 
       <PaperButton mode="text" onPress={onBack} style={{ marginTop: 18 }}>Voltar</PaperButton>
 
-      <Modal visible={participantModalVisible} animationType="slide" transparent={false}>
-        <View style={[styles.container, styles.screenPadding]}>
-          <ScrollView>
-            <Text style={styles.title}>Detalhes do Participante</Text>
-            {participant ? (
-              <View style={localStyles.participantContainer}>
-                <Text style={localStyles.fieldTitle}>Participante</Text>
-                <Text>{participant.participante?.nome || participant.participante?.nome_completo || JSON.stringify(participant.participante)}</Text>
-
-                <Text style={localStyles.fieldTitle}>Email</Text>
-                <Text>{participant.participante?.email}</Text>
-
-                <Text style={localStyles.fieldTitle}>Telefone</Text>
-                <Text>{participant.participante?.telefone}</Text>
-
-                <Text style={localStyles.fieldTitle}>Ingressos</Text>
-                <Text>{participant.foundIngresso ? `Ingresso: ${participant.foundIngresso.ingresso_id}` : 'Nenhum ingresso identificado'}</Text>
-
-                {participant.foundIngresso ? (
-                  <PaperButton mode="contained" onPress={() => openIngressoImage(participant.foundIngresso.ingresso_id, participant.foundIngresso.evento_id, participant.foundIngresso.qrcode_hash)} style={localStyles.modalClose}>Abrir ingresso (visualizar/print)</PaperButton>
-                ) : null}
-
-              </View>
-            ) : (
-              <Text>Nenhum dado disponível.</Text>
-            )}
-
-            <PaperButton mode="contained" onPress={() => setParticipantModalVisible(false)} style={localStyles.modalClose}>Fechar</PaperButton>
-          </ScrollView>
+      <Modal visible={errorModalVisible} animationType="fade" transparent={true}>
+        <View style={[styles.container, styles.screenPadding, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' }]}>
+          <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8 }}>
+            <Text style={{ fontWeight: '700', fontSize: 18 }}>Erro</Text>
+            <Text style={{ marginTop: 8 }}>{errorMessage}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+              <PaperButton mode="contained" onPress={() => { setErrorModalVisible(false); }}>Fechar</PaperButton>
+            </View>
+          </View>
         </View>
+      </Modal>
+    </View>
+  );
+}
