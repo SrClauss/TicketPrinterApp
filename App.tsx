@@ -31,6 +31,8 @@ import BilheteriaScanPrintScreen from './app/screens/BilheteriaScanPrintScreen';
 import BilheteriaSearchPrintScreen from './app/screens/BilheteriaSearchPrintScreen';
 import PortariaScreen from './app/screens/PortariaScreen';
 import PortariaSearchScreen from './app/screens/PortariaSearchScreen';
+import PortariaScanScreen from './app/screens/PortariaScanScreen';
+import PortariaIngressoDetailsScreen from './app/screens/PortariaIngressoDetailsScreen';
 import TicketDetailsScreen from './app/screens/TicketDetailsScreen';
 
 
@@ -84,6 +86,12 @@ function PortariaWrapper({ navigation }: any) {
 function PortariaSearchWrapper({ navigation }: any) {
   return <PortariaSearchScreen onBack={() => navigation.goBack()} />;
 }
+function PortariaScanWrapper({ navigation }: any) {
+  return <PortariaScanScreen onBack={() => navigation.goBack()} />;
+}
+function PortariaIngressoDetailsWrapper({ route, navigation }: any) {
+  return <PortariaIngressoDetailsScreen />;
+}
 
 function BilheteriaListWrapper({ navigation }: any) {
   return <BilheteriaListScreen onBack={() => navigation.goBack()} />;
@@ -123,6 +131,8 @@ function AppContent() {
 
           <Stack.Screen name="Portaria" component={PortariaWrapper} options={{ title: 'Portaria' }} />
           <Stack.Screen name="PortariaSearch" component={PortariaSearchWrapper} options={{ title: 'Pesquisa Portaria' }} />
+          <Stack.Screen name="PortariaScan" component={PortariaScanWrapper} options={{ title: 'Scanner de Ingresso' }} />
+          <Stack.Screen name="PortariaIngressoDetails" component={PortariaIngressoDetailsWrapper} options={{ title: 'Validação de Ingresso' }} />
           <Stack.Screen name="Printer" component={PrinterWrapper} options={{ title: 'Impressora' }} />
           <Stack.Screen name="Result" component={ResultWrapper} options={{ title: 'Resultado' }} />
           <Stack.Screen name="TicketDetails" component={TicketDetailsWrapper} options={{ title: 'Detalhes do Ingresso' }} />
