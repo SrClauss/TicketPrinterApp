@@ -46,16 +46,29 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     
     try {
       console.log('[Scanner] Step 1: Getting token and base URL');
+      console.log('[Scanner] Step 1a: Calling AsyncStorage.getItem');
       const token = await AsyncStorage.getItem('bilheteria_token');
+      console.log('[Scanner] Step 1b: Got token:', token ? 'YES' : 'NO');
+      
+      console.log('[Scanner] Step 1c: Calling getApiBaseUrl');
       const base = getApiBaseUrl();
+      console.log('[Scanner] Step 1d: Got base URL:', base);
+      
+      console.log('[Scanner] Step 1e: Building headers');
       const headers: Record<string,string> = { 'Content-Type': 'application/json' };
       if (token) headers['X-Token-Bilheteria'] = token;
+      console.log('[Scanner] Step 1f: Headers ready');
       
       console.log('[Scanner] Step 2: Calling reimprimir API');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
       const res = await fetch(`${base}/api/bilheteria/reimprimir/${encodeURIComponent(data)}`, { 
         method: 'POST', 
-        headers 
+        headers,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       console.log('[Scanner] Step 3: Got response, status:', res.status);
       const text = await res.text();
@@ -63,7 +76,11 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
       
       if (!res.ok) {
         console.log('[Scanner] Step 5a: Error response');
-        Alert.alert('Erro', `Status ${res.status}\n${SafeLogger.sanitizeString(text)}`); 
+        try {
+          Alert.alert('Erro', `Status ${res.status}\n${SafeLogger.sanitizeString(text)}`);
+        } catch (alertError) {
+          console.error('[Scanner] Alert error:', alertError);
+        }
         setProcessing(false);
         return; 
       }
@@ -112,9 +129,16 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
       }
     } catch (e: unknown) {
       console.error('[Scanner] ERROR in handleCodeDetected:', e);
-      Alert.alert('Erro', String(e), [
-        { text: 'OK', onPress: () => setProcessing(false) }
-      ]);
+      console.error('[Scanner] Error type:', typeof e);
+      console.error('[Scanner] Error constructor:', e?.constructor?.name);
+      try {
+        Alert.alert('Erro', String(e), [
+          { text: 'OK', onPress: () => setProcessing(false) }
+        ]);
+      } catch (alertError) {
+        console.error('[Scanner] Alert error:', alertError);
+        setProcessing(false);
+      }
     }
   };
 
