@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Alert, Modal, Platform, PermissionsAndroid, Vibration } from 'react-native';
-import { Text, Button as PaperButton } from 'react-native-paper';
+import { Text, TextInput as PaperTextInput, Button as PaperButton } from 'react-native-paper';
 import { RNCamera, BarCodeReadEvent } from 'react-native-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
@@ -15,6 +15,7 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
   const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   const lastScanRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
 
@@ -141,7 +142,24 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
       <PaperButton mode="contained" onPress={requestCameraPermission} style={{ marginTop: 12 }}>
         Abrir câmera
       </PaperButton>
-      
+
+      {/* last scanned debug */}
+      <Text style={{ marginTop: 8, color: '#444' }}>{lastScanRef.current ? `Último código detectado: ${lastScanRef.current}` : 'Nenhum código detectado ainda'}</Text>
+
+      {/* manual input fallback for testing */}
+      <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center' }}>
+        <PaperTextInput
+          mode="outlined"
+          placeholder="Cole aqui o conteúdo do QR"
+          value={''}
+          onChangeText={() => { /* keep simple: manual test via Debug button below */ }}
+          style={{ flex: 1, marginRight: 8 }}
+        />
+        {__DEV__ && (
+          <PaperButton mode="contained" onPress={() => { SafeLogger.log('Manual test: calling test handler'); handleBarCodeRead({ data: 'manual-test-qr', type: 'QR_CODE' } as any); }}>OK</PaperButton>
+        )}
+      </View>
+
       {/* Debug button - remover depois */}
       {__DEV__ && (
         <PaperButton 
@@ -150,9 +168,7 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
             SafeLogger.log('🧪 Testing with sample QR code');
             handleBarCodeRead({ 
               data: 'test-qr-code-123', 
-              type: 'QR_CODE',
-              rawData: '',
-              bounds: { origin: { x: '0', y: '0' }, size: { width: '0', height: '0' } }
+              type: 'QR_CODE'
             } as any);
           }} 
           style={{ marginTop: 8 }}
@@ -160,7 +176,7 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
           🧪 Testar com código de exemplo
         </PaperButton>
       )}
-      
+
       <Modal visible={scanning} animationType="slide">
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           <RNCamera 
@@ -175,7 +191,19 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
               RNCamera.Constants.BarCodeType.datamatrix,
             ]}
             autoFocus={RNCamera.Constants.AutoFocus.on}
-            flashMode={RNCamera.Constants.FlashMode.off}
+            flashMode={torchOn ? RNCamera.Constants.FlashMode.torch : RNCamera.Constants.FlashMode.off}
+            onGoogleVisionBarcodesDetected={(payload) => {
+              try { 
+                if (payload && payload.barcodes && payload.barcodes.length) {
+                  SafeLogger.log('onGoogleVisionBarcodesDetected', payload.barcodes);
+                  const first = payload.barcodes[0];
+                  if (first && first.data) {
+                    // reuse existing handler
+                    handleBarCodeRead({ data: first.data, type: first.type } as any);
+                  }
+                }
+              } catch (e) { SafeLogger.error('GV detect handler error', e); }
+            }}
             onCameraReady={() => {
               SafeLogger.log('✅ Camera is ready to scan');
               setCameraReady(true);
@@ -204,6 +232,16 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
                   <Text style={{ color: '#fbbf24', fontSize: 14 }}>⚙️ Processando código...</Text>
                 )}
               </View>
+
+              {/* Torch toggle (top-right) */}
+              <PaperButton
+                mode="contained"
+                onPress={() => setTorchOn(v => !v)}
+                style={{ position: 'absolute', top: 16, right: 12, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.9)' }}
+                textColor="#000"
+              >
+                {torchOn ? '💡 Torch' : '🔦'}
+              </PaperButton>
               
               {processing && (
                 <View style={{ backgroundColor: 'rgba(0,0,0,0.7)', padding: 20, borderRadius: 10 }}>
