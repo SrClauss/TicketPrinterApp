@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { View, Alert, Modal, Platform, PermissionsAndroid, Vibration } from 'react-native';
+import { View, Alert, Modal, StyleSheet, Vibration } from 'react-native';
 import { Text, Button as PaperButton } from 'react-native-paper';
-import { RNCamera, BarCodeReadEvent } from 'react-native-camera';
+import { Camera, useCameraDevice, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
@@ -11,43 +11,14 @@ import BrotherPrint from '../../lib/brother';
 type Props = { onBack: () => void };
 
 export default function BilheteriaScanPrintScreen({ onBack }: Props) {
-  const cameraRef = useRef<RNCamera | null>(null);
   const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
   const lastScanRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
 
-  const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Permissão de Câmera',
-            message: 'Este aplicativo precisa acessar sua câmera para escanear QR codes.',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('[Scanner] Camera permission granted');
-          setScanning(true);
-        } else {
-          Alert.alert('Permissão negada', 'Não é possível usar a câmera sem permissão.');
-        }
-      } catch (err) {
-        console.warn('[Scanner] Permission error:', err);
-        Alert.alert('Erro', 'Falha ao solicitar permissão de câmera.');
-      }
-    } else {
-      setScanning(true);
-    }
-  };
-
-  const handleBarCodeRead = async (event: BarCodeReadEvent) => {
-    const { data, type } = event;
-    
+  const handleCodeDetected = async (data: string, type: string) => {
     if (!data || processing) {
       return;
     }
@@ -55,13 +26,14 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     // Debounce: ignore scans of same code within 3 seconds
     const now = Date.now();
     if (data === lastScanRef.current && (now - lastScanTimeRef.current) < 3000) {
+      console.log('[Scanner] Ignoring duplicate scan');
       return;
     }
     
     lastScanRef.current = data;
     lastScanTimeRef.current = now;
     
-    console.log('[Scanner] QR Code detected!', { data, type, length: data.length });
+    console.log('[Scanner] ✅ QR Code detected!', { data, type, length: data.length });
     
     // Vibrate to give user feedback
     try {
@@ -128,6 +100,31 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
     }
   };
 
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr', 'ean-13', 'code-128', 'code-39', 'pdf-417', 'aztec', 'data-matrix'],
+    onCodeScanned: (codes) => {
+      if (codes.length > 0 && !processing) {
+        const code = codes[0];
+        if (code.value) {
+          console.log('[Scanner] Code scanned:', code.type, code.value);
+          handleCodeDetected(code.value, code.type || 'qr');
+        }
+      }
+    },
+  });
+
+  const requestCameraPermission = async () => {
+    if (!hasPermission) {
+      const granted = await requestPermission();
+      if (!granted) {
+        Alert.alert('Permissão negada', 'Não é possível usar a câmera sem permissão.');
+        return;
+      }
+    }
+    console.log('[Scanner] Camera permission granted, opening camera');
+    setScanning(true);
+  };
+
   return (
     <View style={[styles.container, styles.screenPadding]}>
       <Text style={styles.title}>Ler QR e Imprimir</Text>
@@ -143,10 +140,7 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
           mode="outlined" 
           onPress={() => {
             console.log('[Scanner] Testing with sample QR code');
-            handleBarCodeRead({ 
-              data: 'test-qr-code-123', 
-              type: 'QR_CODE'
-            } as any);
+            handleCodeDetected('test-qr-code-123', 'qr');
           }} 
           style={{ marginTop: 8 }}
         >
@@ -156,55 +150,31 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
 
       <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <RNCamera 
-            ref={ref => { cameraRef.current = ref; }} 
-            style={{ flex: 1 }} 
-            captureAudio={false} 
-            onBarCodeRead={handleBarCodeRead}
-            barCodeTypes={[
-              RNCamera.Constants.BarCodeType.qr,
-              RNCamera.Constants.BarCodeType.aztec,
-              RNCamera.Constants.BarCodeType.code128,
-              RNCamera.Constants.BarCodeType.code39,
-              RNCamera.Constants.BarCodeType.ean13,
-              RNCamera.Constants.BarCodeType.pdf417,
-              RNCamera.Constants.BarCodeType.datamatrix,
-            ]}
-            autoFocus={RNCamera.Constants.AutoFocus.on}
-            flashMode={RNCamera.Constants.FlashMode.auto}
-            onCameraReady={() => {
-              console.log('[Scanner] ✅ Camera is READY to scan');
-              console.log('[Scanner] Barcode types enabled:', [
-                'qr', 'aztec', 'code128', 'code39', 'ean13', 'pdf417', 'datamatrix'
-              ]);
-            }}
-            onMountError={(error) => {
-              console.error('[Scanner] ❌ Camera mount ERROR:', error);
-              Alert.alert('Erro de câmera', String(error));
-            }}
-            androidCameraPermissionOptions={{
-              title: 'Permissão para usar câmera',
-              message: 'Precisamos da sua permissão para usar a câmera',
-              buttonPositive: 'Ok',
-              buttonNegative: 'Cancelar',
-            }}
-          >
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              {processing ? (
-                <View style={{ backgroundColor: 'rgba(0,0,0,0.7)', padding: 20, borderRadius: 10 }}>
-                  <Text style={{ color: '#fff', fontSize: 16 }}>Processando...</Text>
-                </View>
-              ) : (
-                <View style={{ 
-                  width: 250, 
-                  height: 250, 
-                  borderWidth: 3, 
-                  borderColor: '#0ea5e9', 
-                  borderRadius: 10
-                }} />
-              )}
-            </View>
-          </RNCamera>
+          {device != null && (
+            <Camera 
+              style={StyleSheet.absoluteFill} 
+              device={device}
+              isActive={scanning}
+              codeScanner={codeScanner}
+            />
+          )}
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {processing ? (
+              <View style={{ backgroundColor: 'rgba(0,0,0,0.7)', padding: 20, borderRadius: 10 }}>
+                <Text style={{ color: '#fff', fontSize: 16 }}>Processando...</Text>
+              </View>
+            ) : (
+              <View style={{ 
+                width: 250, 
+                height: 250, 
+                borderWidth: 3, 
+                borderColor: '#0ea5e9', 
+                borderRadius: 10
+              }} />
+            )}
+          </View>
+          
           <PaperButton 
             mode="contained" 
             onPress={() => { setScanning(false); setProcessing(false); }} 
