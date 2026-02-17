@@ -1,7 +1,7 @@
 import React, {useEffect, useState, useCallback, useMemo} from 'react';
 import { View, Alert, Modal, ScrollView, StyleSheet } from 'react-native';
 import { Appbar, useTheme, Text, Button as PaperButton, TextInput as PaperTextInput, IconButton, ActivityIndicator as PaperActivityIndicator, List, Divider } from 'react-native-paper';
-import DocumentPicker, { types } from 'react-native-document-picker';
+// import DocumentPicker, { types } from 'react-native-document-picker'; // Removed - not needed for QR code flow
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BrotherPrint, { PrinterModel, LabelSize, DiscoveredPrinter } from '../../lib/brother';
 import { styles } from '../../App';
@@ -76,17 +76,8 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
   useEffect(() => { AsyncStorage.setItem('label_size', selectedLabelSize); }, [selectedLabelSize]);
 
   const pickFile = async () => {
-    try {
-      const res = await DocumentPicker.pick({ type: [types.images] });
-      setFile(res[0].uri);
-    } catch (err: any) {
-      if (DocumentPicker.isCancel(err)) {
-        // canceled
-      } else {
-        SafeLogger.error('Unknown error picking file', err);
-        Alert.alert('Erro ao selecionar arquivo', SafeLogger.sanitizeString(err?.message || String(err)));
-      }
-    }
+    // Removed DocumentPicker functionality - not needed for QR code scanning flow
+    Alert.alert('Funcionalidade desabilitada', 'A seleção manual de imagens foi desabilitada. Use o scanner de QR code para impressão automática.');
   };
 
   const handleStorageIP = async () => {
@@ -190,10 +181,10 @@ export default function PrinterScreen({ onGoToLogin }: Props) {
 
       {/* Printer-only controls: file selection, print, discovery and model/label settings */}
 
-      <PaperButton icon="file" mode="outlined" onPress={pickFile}>Selecionar Imagem</PaperButton>
-      <Text style={styles.fileStatus}>{file ? `✓ ${file.split('/').pop()}` : 'Nenhum arquivo selecionado'}</Text>
+      <PaperButton icon="file" mode="outlined" onPress={pickFile} disabled>Selecionar Imagem (Desabilitado)</PaperButton>
+      <Text style={styles.fileStatus}>{file ? `✓ ${file.split('/').pop()}` : 'Use o scanner de QR code para impressão'}</Text>
       {printing && <PaperActivityIndicator animating={printing} size={36} style={styles.loader} />}
-      <PaperButton icon="printer" mode="contained" loading={printing} disabled={printing} onPress={doPrint} style={localStyles.marginTop12}>{printing ? 'Enviando...' : 'Imprimir imagem selecionada'}</PaperButton>
+      <PaperButton icon="printer" mode="contained" loading={printing} disabled={true} onPress={doPrint} style={localStyles.marginTop12}>Imprimir (Use QR Scanner)</PaperButton>
 
       <PaperButton mode="text" icon="login" onPress={onGoToLogin} style={localStyles.marginTop8}>Ir para Login por Token</PaperButton>
     </ScrollView>
