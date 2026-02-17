@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../../App';
 import { getApiBaseUrl } from '../../env';
 import SafeLogger from '../utils/SafeLogger';
+import { useNavigation } from '@react-navigation/native';
 import { Camera, useCameraDevice, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 
 type Props = {
