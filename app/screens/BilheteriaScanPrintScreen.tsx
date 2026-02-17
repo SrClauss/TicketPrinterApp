@@ -219,6 +219,12 @@ export default function BilheteriaScanPrintScreen({ onBack }: Props) {
               buttonNegative: 'Cancelar',
             }}
           >
+            {/* Torch / debug controls */}
+            <View style={{ position: 'absolute', right: 12, top: 12, zIndex: 20 }}>
+              <PaperButton mode="contained" compact onPress={() => { setTorchOn(v => !v); SafeLogger.log('Torch toggled', !torchOn); }}>
+                {torchOn ? 'Lanterna off' : 'Lanterna on'}
+              </PaperButton>
+            </View>
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               {/* Status indicator at top */}
               <View style={{ position: 'absolute', top: 20, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.7)', padding: 10, borderRadius: 8 }}>
