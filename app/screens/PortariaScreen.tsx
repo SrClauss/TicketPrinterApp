@@ -48,6 +48,8 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
 
   useEffect(() => { loadInfo(); }, []);
 
+  const navigation = useNavigation();
+
   const fetchIngresso = async (qrcode_hash: string) => {
     if (processingRef.current) return;
     processingRef.current = true;
@@ -65,12 +67,7 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
       const base = getApiBaseUrl();
       const res = await fetch(`${base}/api/portaria/ingresso/${encodeURIComponent(qrcode_hash)}`, { headers: { 'X-Token-Portaria': token } });
       const text = await res.text();
-      if (res.ok) {
-        let data: any;
-        try { data = JSON.parse(text); } catch { data = text; }
-        setParticipant(data);
-        setParticipantModalVisible(true);
-      } else {
+      if (!res.ok) {
         if (res.status === 404) {
           setErrorMessage('QRCode inválido ou não encontrado.');
         } else if (res.status === 403 || res.status === 401) {
@@ -79,7 +76,50 @@ export default function PortariaScreen({ onBack, onOpenSearch }: Props) {
           setErrorMessage(`Erro ${res.status}: ${SafeLogger.sanitizeString(text)}`);
         }
         setErrorModalVisible(true);
+        return;
       }
+
+      let data: any;
+      try { data = JSON.parse(text); } catch { data = text; }
+
+      // Prefer navigating to TicketDetails (reuse Bilheteria components/UX)
+      // Build ticket object compatible with TicketDetailsScreen
+      const ingresso = data.ingresso || data;
+      const participante = data.participante || data.participante || (data.ingresso && data.ingresso.participante) || null;
+
+      const qrcode = ingresso?.qrcode_hash || ingresso?.qrcode || data?.qrcode_hash || qrcode_hash;
+      const eventoId = ingresso?.evento_id || ingresso?.evento?._id || data?.evento_id || null;
+      const ingressoId = ingresso?._id || ingresso?.id || null;
+
+      // Construct imageUrl the same way Bilheteria does
+      let imageUrl: string | null = null;
+      if (qrcode) {
+        imageUrl = `${base}/api/bilheteria/render/${encodeURIComponent(qrcode)}?evento_id=${encodeURIComponent(eventoId)}`;
+      } else if (eventoId && ingressoId) {
+        imageUrl = `${base}/api/evento/${encodeURIComponent(eventoId)}/ingresso/${encodeURIComponent(ingressoId)}/render.jpg`;
+      }
+
+      // Try to provide bilheteria token so TicketDetails can download image with headers
+      const bilheteriaToken = await AsyncStorage.getItem('bilheteria_token');
+
+      console.log('[Portaria] navigating to TicketDetails', { ingressoId, qrcode, eventoId, hasBilheteriaToken: !!bilheteriaToken });
+
+      navigation.navigate('TicketDetails', {
+        ticket: {
+          id: ingressoId || qrcode || qrcode_hash,
+          name: participante?.nome || participante?.nome_completo || 'Ingresso',
+          details: participante?.cpf || '',
+          imageUrl: imageUrl || `${base}/api/portaria/ingresso/${encodeURIComponent(qrcode_hash)}`,
+          token: bilheteriaToken, // may be null — TicketDetails handles missing token
+          eventoId: eventoId || null,
+          qrcode_hash: qrcode || null,
+        }
+      });
+
+      // still set local state so modal can be opened if user returns
+      setParticipant(data);
+      setParticipantModalVisible(true);
+
     } catch (e: any) {
       setErrorMessage(`Erro de conexão: ${String(e)}`);
       setErrorModalVisible(true);
